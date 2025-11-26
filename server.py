@@ -118,14 +118,19 @@ def execute_query(query: str, database: str = "world", params: tuple = None) -> 
 @mcp.tool()
 def query_database(query: str, database: str = "world") -> str:
     """
-    Execute a read-only SQL query against an AzerothCore database.
+    Execute a SQL query against an AzerothCore database.
 
     Args:
-        query: SQL SELECT query to execute
+        query: SQL query to execute
         database: Which database to query - 'world', 'characters', or 'auth'
 
     Returns:
         JSON string of query results (list of row dicts)
+
+    Notes:
+        - Do NOT query spell_dbc for spell lookups. This table only contains custom spells,
+          not standard WoW spells. Standard spell IDs are from the game client's DBC files.
+        - If READ_ONLY=true (default), only SELECT/SHOW/DESCRIBE queries are allowed.
 
     Examples:
         - query_database("SELECT * FROM creature_template WHERE entry = 1234")
