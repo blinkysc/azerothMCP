@@ -18,6 +18,11 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 - **get_smart_scripts** - Retrieve SmartAI scripts for any source type
 - **explain_smart_script** - Get documentation for event/action/target types
 - **trace_script_chain** - Debug and visualize SmartAI execution flow, following links, timed action lists, and data triggers
+- **get_smartai_source** - Get actual C++ implementation from SmartScript.cpp for any event/action/target type
+
+### Source Code Tools
+- **search_azerothcore_source** - Search AzerothCore source code for patterns
+- **read_source_file** - Read specific source files from AzerothCore
 
 ### Wiki/Documentation Tools
 - **search_wiki** - Search AzerothCore wiki documentation
