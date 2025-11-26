@@ -55,6 +55,9 @@ DB_NAMES = {
 # Read-only mode (set to "false" to enable write operations)
 READ_ONLY = os.getenv("READ_ONLY", "true").lower() != "false"
 
+# Enable spell_dbc tool (only needed for custom spells)
+ENABLE_SPELL_DBC = os.getenv("ENABLE_SPELL_DBC", "false").lower() == "true"
+
 WIKI_PATH = Path(os.getenv("WIKI_PATH", os.path.expanduser("~/wiki/docs")))
 
 # Initialize MCP server with SSE settings
@@ -1123,34 +1126,35 @@ def search_gameobjects(name_pattern: str, limit: int = 20) -> str:
 # SPELL TOOLS
 # =============================================================================
 
-@mcp.tool()
-def search_spells(name_or_id: str, limit: int = 20) -> str:
-    """
-    Search for spells by name or ID in spell_dbc.
+if ENABLE_SPELL_DBC:
+    @mcp.tool()
+    def search_spells(name_or_id: str, limit: int = 20) -> str:
+        """
+        Search for spells by name or ID in spell_dbc (custom spells only).
 
-    Args:
-        name_or_id: Spell name pattern or ID number
-        limit: Maximum results
+        Args:
+            name_or_id: Spell name pattern or ID number
+            limit: Maximum results
 
-    Returns:
-        Matching spells
-    """
-    try:
-        if name_or_id.isdigit():
-            results = execute_query(
-                "SELECT ID, SpellName, Description FROM spell_dbc WHERE ID = %s",
-                "world",
-                (int(name_or_id),)
-            )
-        else:
-            results = execute_query(
-                f"SELECT ID, SpellName, Description FROM spell_dbc WHERE SpellName LIKE %s LIMIT {min(limit, 100)}",
-                "world",
-                (f"%{name_or_id}%",)
-            )
-        return json.dumps(results, indent=2, default=str)
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+        Returns:
+            Matching spells
+        """
+        try:
+            if name_or_id.isdigit():
+                results = execute_query(
+                    "SELECT ID, SpellName, Description FROM spell_dbc WHERE ID = %s",
+                    "world",
+                    (int(name_or_id),)
+                )
+            else:
+                results = execute_query(
+                    f"SELECT ID, SpellName, Description FROM spell_dbc WHERE SpellName LIKE %s LIMIT {min(limit, 100)}",
+                    "world",
+                    (f"%{name_or_id}%",)
+                )
+            return json.dumps(results, indent=2, default=str)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
 
 
 # =============================================================================
