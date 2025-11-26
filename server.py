@@ -1589,4 +1589,27 @@ def search_items(name_pattern: str, limit: int = 20) -> str:
 if __name__ == "__main__":
     port = int(os.getenv("MCP_PORT", 8080))
     print(f"Starting AzerothCore MCP Server on http://localhost:{port}/sse")
+    print()
+
+    # Database status
+    print(f"Database: {DB_CONFIG['host']}:{DB_CONFIG['port']} ({', '.join(DB_NAMES.values())})")
+    print(f"Database Mode: {'READ-ONLY' if READ_ONLY else 'READ-WRITE'}")
+
+    # Wiki status
+    if WIKI_PATH.exists():
+        print(f"Wiki: {WIKI_PATH}")
+    else:
+        print(f"Wiki: NOT FOUND ({WIKI_PATH})")
+
+    # AzerothCore source status
+    if AZEROTHCORE_SRC_PATH.exists():
+        print(f"AzerothCore Source: {AZEROTHCORE_SRC_PATH}")
+    else:
+        print(f"AzerothCore Source: NOT FOUND ({AZEROTHCORE_SRC_PATH})")
+
+    # Optional features
+    if ENABLE_SPELL_DBC:
+        print("Spell DBC: ENABLED")
+
+    print()
     mcp.run(transport="sse")
