@@ -76,6 +76,16 @@ DB_AUTH=acore_auth
 # Clone https://github.com/azerothcore/wiki to ~/wiki
 WIKI_PATH=~/wiki/docs
 
+# AzerothCore source path (for source code tools)
+AZEROTHCORE_SRC_PATH=~/azerothcore
+
+# Read-only mode (default: true)
+# Set to "false" to allow INSERT, UPDATE, DELETE queries
+READ_ONLY=true
+
+# Enable spell_dbc tool (default: false, for custom spells only)
+ENABLE_SPELL_DBC=false
+
 # MCP server port
 MCP_PORT=8080
 ```
