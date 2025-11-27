@@ -1,0 +1,3 @@
+[submodule "Keira3"]
+	path = Keira3
+	url = https://github.com/azerothcore/Keira3.git

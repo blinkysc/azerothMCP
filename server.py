@@ -35,6 +35,14 @@ import mysql.connector
 from mysql.connector import Error
 from mcp.server.fastmcp import FastMCP
 
+# Import SAI comment generator (Keira3 port)
+try:
+    from sai_comment_generator import SaiCommentGenerator
+    SAI_GENERATOR_AVAILABLE = True
+except ImportError:
+    SAI_GENERATOR_AVAILABLE = False
+    SaiCommentGenerator = None
+
 # Load environment variables
 load_dotenv()
 
@@ -249,10 +257,53 @@ def search_creatures(name_pattern: str, limit: int = 20) -> str:
 # SMART AI TOOLS
 # =============================================================================
 
+def _mysql_query_for_sai(query: str, database: str = "world"):
+    """Wrapper for execute_query that returns results for SAI generator."""
+    return execute_query(query, database)
+
+
+def _add_sai_comments(scripts: list, name: str) -> list:
+    """Add Keira3-style comments to SmartAI scripts."""
+    if not SAI_GENERATOR_AVAILABLE or not scripts:
+        return scripts
+
+    try:
+        generator = SaiCommentGenerator(mysql_query_func=_mysql_query_for_sai)
+        for script in scripts:
+            script["_comment"] = generator.generate_comment(scripts, script, name)
+        return scripts
+    except Exception:
+        return scripts
+
+
+def _get_entity_name(entryorguid: int, source_type: int) -> str:
+    """Get entity name for SAI comment generation."""
+    name = f"Entity {entryorguid}"
+    try:
+        if source_type == 0:  # Creature
+            result = execute_query(
+                "SELECT name FROM creature_template WHERE entry = %s",
+                "world", (abs(entryorguid),)
+            )
+            if result:
+                name = result[0].get("name", name)
+        elif source_type == 1:  # GameObject
+            result = execute_query(
+                "SELECT name FROM gameobject_template WHERE entry = %s",
+                "world", (abs(entryorguid),)
+            )
+            if result:
+                name = result[0].get("name", name)
+    except Exception:
+        pass
+    return name
+
+
 @mcp.tool()
 def get_smart_scripts(entryorguid: int, source_type: int = 0) -> str:
     """
     Get SmartAI scripts for a creature, gameobject, or other source.
+    Includes auto-generated human-readable comments for each script row.
 
     Args:
         entryorguid: The entry or GUID of the source
@@ -260,7 +311,7 @@ def get_smart_scripts(entryorguid: int, source_type: int = 0) -> str:
                     4=Gossip, 5=Quest, 6=Spell, 7=Transport, 8=Instance, 9=TimedActionList
 
     Returns:
-        All smart_scripts rows for this entity, ordered by id
+        All smart_scripts rows for this entity with generated comments, ordered by id
     """
     try:
         results = execute_query(
@@ -275,6 +326,11 @@ def get_smart_scripts(entryorguid: int, source_type: int = 0) -> str:
                 "message": f"No SmartAI scripts found for entryorguid={entryorguid}, source_type={source_type}",
                 "hint": "If this is a creature, check if it uses SmartAI (AIName='SmartAI' in creature_template)"
             })
+
+        # Add Keira3-style comments
+        name = _get_entity_name(entryorguid, source_type)
+        results = _add_sai_comments(results, name)
+
         return json.dumps(results, indent=2, default=str)
     except Exception as e:
         return json.dumps({"error": str(e)})
@@ -285,12 +341,13 @@ def get_creature_with_scripts(entry: int) -> str:
     """
     Get creature template AND its SmartAI scripts together.
     Useful for understanding a creature's complete behavior.
+    Includes auto-generated human-readable comments for each script row.
 
     Args:
         entry: Creature entry ID
 
     Returns:
-        Combined creature template data and SmartAI scripts
+        Combined creature template data and SmartAI scripts with generated comments
     """
     try:
         creature = execute_query(
@@ -303,6 +360,7 @@ def get_creature_with_scripts(entry: int) -> str:
             return json.dumps({"error": f"No creature found with entry {entry}"})
 
         creature_data = creature[0]
+        creature_name = creature_data.get("name", f"Creature {entry}")
 
         # Check if creature uses SmartAI
         ai_name = creature_data.get("AIName", "")
@@ -314,6 +372,8 @@ def get_creature_with_scripts(entry: int) -> str:
                 "world",
                 (entry,)
             )
+            # Add Keira3-style comments
+            scripts = _add_sai_comments(scripts, creature_name)
 
         # Also check for timed action lists referenced by this creature
         timed_lists = []
@@ -329,6 +389,8 @@ def get_creature_with_scripts(entry: int) -> str:
                         (list_id,)
                     )
                     if timed_scripts:
+                        # Add comments to timed action list scripts too
+                        timed_scripts = _add_sai_comments(timed_scripts, creature_name)
                         timed_lists.append({
                             "list_id": list_id,
                             "scripts": timed_scripts
@@ -1588,6 +1650,297 @@ def search_items(name_pattern: str, limit: int = 20) -> str:
 
 
 # =============================================================================
+# SAI COMMENT GENERATOR (Keira3 Port)
+# =============================================================================
+
+@mcp.tool()
+def generate_sai_comments(entryorguid: int, source_type: int = 0) -> str:
+    """
+    Generate human-readable comments for SmartAI scripts using Keira3's comment generator.
+
+    This tool fetches SmartAI scripts and generates descriptive comments explaining
+    what each script row does, similar to what Keira3 generates.
+
+    Args:
+        entryorguid: The entry or GUID of the creature/gameobject
+        source_type: 0=Creature, 1=GameObject, 2=AreaTrigger, 9=TimedActionList
+
+    Returns:
+        SmartAI scripts with generated comments
+    """
+    if not SAI_GENERATOR_AVAILABLE:
+        return json.dumps({"error": "SAI comment generator not available. Check sai_comment_generator.py"})
+
+    try:
+        # Get the scripts
+        scripts = execute_query(
+            """SELECT * FROM smart_scripts
+               WHERE entryorguid = %s AND source_type = %s
+               ORDER BY id""",
+            "world",
+            (entryorguid, source_type)
+        )
+
+        if not scripts:
+            return json.dumps({
+                "message": f"No SmartAI scripts found for entryorguid={entryorguid}, source_type={source_type}"
+            })
+
+        # Get the name
+        name = f"Entity {entryorguid}"
+        if source_type == 0:  # Creature
+            creature = execute_query(
+                "SELECT name FROM creature_template WHERE entry = %s",
+                "world",
+                (abs(entryorguid),)
+            )
+            if creature:
+                name = creature[0].get("name", name)
+        elif source_type == 1:  # GameObject
+            gameobj = execute_query(
+                "SELECT name FROM gameobject_template WHERE entry = %s",
+                "world",
+                (abs(entryorguid),)
+            )
+            if gameobj:
+                name = gameobj[0].get("name", name)
+
+        # Generate comments
+        generator = SaiCommentGenerator(mysql_query_func=_mysql_query_for_sai)
+        results = []
+
+        for script in scripts:
+            comment = generator.generate_comment(scripts, script, name)
+            results.append({
+                "id": script.get("id"),
+                "event_type": script.get("event_type"),
+                "action_type": script.get("action_type"),
+                "target_type": script.get("target_type"),
+                "comment": comment,
+                "full_row": script
+            })
+
+        return json.dumps({
+            "entity_name": name,
+            "entryorguid": entryorguid,
+            "source_type": source_type,
+            "script_count": len(results),
+            "scripts_with_comments": results
+        }, indent=2, default=str)
+
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+def get_spell_name(spell_id: int) -> str:
+    """
+    Get a spell name from Keira3's sqlite database.
+
+    This uses the offline spell database bundled with Keira3, which contains
+    all spell names from the WoW 3.3.5a client data.
+
+    Args:
+        spell_id: The spell ID to look up
+
+    Returns:
+        Spell name and ID
+    """
+    if not SAI_GENERATOR_AVAILABLE:
+        return json.dumps({"error": "SAI comment generator not available"})
+
+    try:
+        generator = SaiCommentGenerator()
+        name = generator.get_spell_name(spell_id)
+        return json.dumps({
+            "spell_id": spell_id,
+            "spell_name": name
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+def lookup_spell_names(spell_ids: str) -> str:
+    """
+    Look up multiple spell names at once from Keira3's sqlite database.
+
+    Args:
+        spell_ids: Comma-separated list of spell IDs (e.g. "1234,5678,9012")
+
+    Returns:
+        Dictionary mapping spell IDs to names
+    """
+    if not SAI_GENERATOR_AVAILABLE:
+        return json.dumps({"error": "SAI comment generator not available"})
+
+    try:
+        generator = SaiCommentGenerator()
+        ids = [int(x.strip()) for x in spell_ids.split(",") if x.strip().isdigit()]
+
+        results = {}
+        for spell_id in ids:
+            results[spell_id] = generator.get_spell_name(spell_id)
+
+        return json.dumps(results, indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+def generate_comment_for_script(
+    entity_name: str,
+    event_type: int,
+    action_type: int,
+    target_type: int = 1,
+    event_param1: int = 0,
+    event_param2: int = 0,
+    event_param3: int = 0,
+    event_param4: int = 0,
+    event_param5: int = 0,
+    event_param6: int = 0,
+    action_param1: int = 0,
+    action_param2: int = 0,
+    action_param3: int = 0,
+    action_param4: int = 0,
+    action_param5: int = 0,
+    action_param6: int = 0,
+    target_param1: int = 0,
+    target_param2: int = 0,
+    target_param3: int = 0,
+    target_param4: int = 0,
+    target_o: float = 0,
+    event_phase_mask: int = 0,
+    event_flags: int = 0,
+    source_type: int = 0
+) -> str:
+    """
+    Generate a human-readable comment for a SmartAI script row BEFORE inserting it.
+    Use this when creating new SmartAI scripts to get the proper comment field value.
+
+    Args:
+        entity_name: Name of the creature/gameobject (e.g. "Hogger")
+        event_type: SmartAI event type
+        action_type: SmartAI action type
+        target_type: SmartAI target type (default 1 = SELF)
+        event_param1-6: Event parameters
+        action_param1-6: Action parameters
+        target_param1-4: Target parameters
+        target_o: Target orientation
+        event_phase_mask: Phase mask for the event
+        event_flags: Event flags (e.g. 1 = NOT_REPEATABLE)
+        source_type: 0=Creature, 1=GameObject, 2=AreaTrigger, 9=TimedActionList
+
+    Returns:
+        Generated comment string suitable for the 'comment' column
+    """
+    if not SAI_GENERATOR_AVAILABLE:
+        return json.dumps({"error": "SAI comment generator not available"})
+
+    try:
+        # Build a script dict matching what the generator expects
+        script = {
+            "id": 0,
+            "link": 0,
+            "source_type": source_type,
+            "event_type": event_type,
+            "event_phase_mask": event_phase_mask,
+            "event_flags": event_flags,
+            "event_param1": event_param1,
+            "event_param2": event_param2,
+            "event_param3": event_param3,
+            "event_param4": event_param4,
+            "event_param5": event_param5,
+            "event_param6": event_param6,
+            "action_type": action_type,
+            "action_param1": action_param1,
+            "action_param2": action_param2,
+            "action_param3": action_param3,
+            "action_param4": action_param4,
+            "action_param5": action_param5,
+            "action_param6": action_param6,
+            "target_type": target_type,
+            "target_param1": target_param1,
+            "target_param2": target_param2,
+            "target_param3": target_param3,
+            "target_param4": target_param4,
+            "target_o": target_o,
+        }
+
+        generator = SaiCommentGenerator(mysql_query_func=_mysql_query_for_sai)
+        comment = generator.generate_comment([script], script, entity_name)
+
+        return json.dumps({
+            "comment": comment,
+            "script_preview": script
+        }, indent=2, default=str)
+
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+def generate_comments_for_scripts_batch(entity_name: str, scripts_json: str) -> str:
+    """
+    Generate comments for multiple SmartAI script rows at once.
+    Use this when creating a full set of scripts for an entity.
+
+    Args:
+        entity_name: Name of the creature/gameobject (e.g. "Hogger")
+        scripts_json: JSON array of script objects, each with at minimum:
+                     event_type, action_type, target_type, and any relevant params
+
+    Example scripts_json:
+        [
+            {"id": 0, "event_type": 4, "action_type": 11, "action_param1": 12345, "target_type": 2},
+            {"id": 1, "event_type": 0, "action_type": 11, "action_param1": 67890, "target_type": 2}
+        ]
+
+    Returns:
+        The scripts with generated comments added
+    """
+    if not SAI_GENERATOR_AVAILABLE:
+        return json.dumps({"error": "SAI comment generator not available"})
+
+    try:
+        scripts = json.loads(scripts_json)
+
+        # Fill in defaults for missing fields
+        defaults = {
+            "id": 0, "link": 0, "source_type": 0,
+            "event_type": 0, "event_phase_mask": 0, "event_flags": 0,
+            "event_param1": 0, "event_param2": 0, "event_param3": 0,
+            "event_param4": 0, "event_param5": 0, "event_param6": 0,
+            "action_type": 0, "action_param1": 0, "action_param2": 0,
+            "action_param3": 0, "action_param4": 0, "action_param5": 0,
+            "action_param6": 0, "target_type": 1, "target_param1": 0,
+            "target_param2": 0, "target_param3": 0, "target_param4": 0,
+            "target_o": 0,
+        }
+
+        for script in scripts:
+            for key, default_val in defaults.items():
+                if key not in script:
+                    script[key] = default_val
+
+        generator = SaiCommentGenerator(mysql_query_func=_mysql_query_for_sai)
+
+        for script in scripts:
+            script["comment"] = generator.generate_comment(scripts, script, entity_name)
+
+        return json.dumps({
+            "entity_name": entity_name,
+            "script_count": len(scripts),
+            "scripts": scripts
+        }, indent=2, default=str)
+
+    except json.JSONDecodeError as e:
+        return json.dumps({"error": f"Invalid JSON: {e}"})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -1615,6 +1968,12 @@ if __name__ == "__main__":
     # Optional features
     if ENABLE_SPELL_DBC:
         print("Spell DBC: ENABLED")
+
+    # Keira3 SAI Comment Generator
+    if SAI_GENERATOR_AVAILABLE:
+        print("Keira3 SAI Generator: ENABLED")
+    else:
+        print("Keira3 SAI Generator: NOT AVAILABLE (check sai_comment_generator.py)")
 
     print()
     mcp.run(transport="sse")
