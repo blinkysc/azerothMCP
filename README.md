@@ -15,10 +15,17 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 - **get_creature_with_scripts** - Get creature template with associated SmartAI scripts
 
 ### SmartAI Tools
-- **get_smart_scripts** - Retrieve SmartAI scripts for any source type
+- **get_smart_scripts** - Retrieve SmartAI scripts with auto-generated Keira3-style comments
 - **explain_smart_script** - Get documentation for event/action/target types
 - **trace_script_chain** - Debug and visualize SmartAI execution flow, following links, timed action lists, and data triggers
 - **get_smartai_source** - Get actual C++ implementation from SmartScript.cpp for any event/action/target type
+- **generate_sai_comments** - Generate human-readable comments for existing creature/gameobject scripts
+- **generate_comment_for_script** - Generate a comment for a single new script row before inserting
+- **generate_comments_for_scripts_batch** - Generate comments for multiple script rows at once
+
+### Spell Lookup Tools
+- **get_spell_name** - Look up a spell name by ID from Keira3's offline database
+- **lookup_spell_names** - Batch lookup multiple spell names at once
 
 ### Source Code Tools
 - **search_azerothcore_source** - Search AzerothCore source code for patterns
@@ -42,10 +49,15 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 
 ## Installation
 
-1. Clone the repository:
+1. Clone the repository (with submodules for Keira3 spell database):
 ```bash
-git clone https://github.com/yourusername/azerothMCP.git
+git clone --recursive https://github.com/yourusername/azerothMCP.git
 cd azerothMCP
+```
+
+If you already cloned without `--recursive`, initialize submodules:
+```bash
+git submodule update --init --recursive
 ```
 
 2. Create and activate a virtual environment:
@@ -146,6 +158,8 @@ Once connected, you can ask things like:
 - "Explain SmartAI event type 4"
 - "Trace the script chain for creature 1234"
 - "Find quests related to Westfall"
+- "Generate comments for this SmartAI script"
+- "What spell is ID 17364?"
 
 ## Wiki Setup (Optional)
 
@@ -177,4 +191,5 @@ GNU GPL v2 - See [LICENSE](LICENSE)
 ## Related Projects
 
 - [AzerothCore](https://github.com/azerothcore/azerothcore-wotlk) - Open source WoW emulator
+- [Keira3](https://github.com/azerothcore/Keira3) - Database editor for AzerothCore (spell database used for comment generation)
 - [Model Context Protocol](https://modelcontextprotocol.io/) - Open protocol for AI context sharing
