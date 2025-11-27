@@ -58,10 +58,10 @@ READ_ONLY = os.getenv("READ_ONLY", "true").lower() != "false"
 # Enable spell_dbc tool (only needed for custom spells)
 ENABLE_SPELL_DBC = os.getenv("ENABLE_SPELL_DBC", "false").lower() == "true"
 
-WIKI_PATH = Path(os.getenv("WIKI_PATH", os.path.expanduser("~/wiki/docs")))
+WIKI_PATH = Path(os.path.expanduser(os.getenv("WIKI_PATH", "~/wiki/docs")))
 
 # AzerothCore source path (for reading SmartAI implementations)
-AZEROTHCORE_SRC_PATH = Path(os.getenv("AZEROTHCORE_SRC_PATH", os.path.expanduser("~/azerothcore")))
+AZEROTHCORE_SRC_PATH = Path(os.path.expanduser(os.getenv("AZEROTHCORE_SRC_PATH", "~/azerothcore")))
 
 # Initialize MCP server with SSE settings
 mcp = FastMCP(
