@@ -135,6 +135,13 @@ def query_database(query: str, database: str = "world") -> str:
     Returns:
         JSON string of query results (list of row dicts)
 
+    IMPORTANT - Before querying unfamiliar tables:
+        1. Use get_table_schema(table_name) to see the actual column names
+        2. Do NOT assume column names - AzerothCore tables often use non-standard naming
+           (e.g., 'entry' instead of 'id', 'guid' instead of 'id')
+        3. Common primary keys: creature_template uses 'entry', areatrigger_scripts uses 'entry',
+           smart_scripts uses 'entryorguid', characters uses 'guid'
+
     Notes:
         - Do NOT query spell_dbc for spell lookups. This table only contains custom spells,
           not standard WoW spells. Standard spell IDs are from the game client's DBC files.
@@ -155,20 +162,35 @@ def query_database(query: str, database: str = "world") -> str:
             }, indent=2, default=str)
         return json.dumps(results, indent=2, default=str)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        error_str = str(e)
+        # Provide helpful hint for unknown column errors
+        if "Unknown column" in error_str:
+            # Try to extract table name from query
+            table_match = re.search(r'FROM\s+`?(\w+)`?', query, re.IGNORECASE)
+            table_hint = f" Use get_table_schema('{table_match.group(1)}') to see valid columns." if table_match else " Use get_table_schema() to check valid column names."
+            return json.dumps({
+                "error": error_str,
+                "hint": f"Column name not found.{table_hint}"
+            })
+        return json.dumps({"error": error_str})
 
 
 @mcp.tool()
 def get_table_schema(table_name: str, database: str = "world") -> str:
     """
-    Get the schema/structure of a database table.
+    Get the schema/structure of a database table. ALWAYS use this before querying
+    unfamiliar tables to discover the correct column names.
 
     Args:
         table_name: Name of the table to describe
         database: Which database - 'world', 'characters', or 'auth'
 
     Returns:
-        Table column definitions
+        Table column definitions including column names, types, and keys
+
+    Usage:
+        Call this BEFORE writing queries for tables you haven't queried before.
+        AzerothCore tables use non-standard column names (e.g., 'entry' not 'id').
     """
     try:
         results = execute_query(f"DESCRIBE `{table_name}`", database)
