@@ -3,6 +3,12 @@
 SAI Comment Generator - Python port of Keira3's sai-comment-generator.service.ts
 
 Generates human-readable comments for SmartAI scripts.
+
+This file is a derivative work based on Keira3's SAI comment generation logic.
+Original TypeScript implementation: https://github.com/azerothcore/Keira3
+Keira3 is licensed under AGPL-3.0 - Copyright (C) Keira3 contributors
+
+Ported to Python for use in azerothMCP.
 """
 
 import sqlite3
