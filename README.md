@@ -117,6 +117,32 @@ SOAP_USERNAME=your_admin_account
 SOAP_PASSWORD=your_account_password
 ```
 
+## Project Structure
+
+```
+azerothMCP/
+├── main.py                      # Entry point
+├── azerothmcp/                  # Main package
+│   ├── __init__.py
+│   ├── config.py                # Configuration (DB, paths, flags)
+│   ├── db.py                    # Database connection & query execution
+│   └── tools/                   # MCP tool modules
+│       ├── __init__.py          # Tool registration
+│       ├── database.py          # Database query tools
+│       ├── creatures.py         # Creature/NPC tools
+│       ├── smartai.py           # SmartAI scripting tools
+│       ├── source.py            # AzerothCore source code tools
+│       ├── wiki.py              # Wiki documentation tools
+│       ├── gameobjects.py       # GameObject tools
+│       ├── quests.py            # Quest tools
+│       ├── items.py             # Item tools
+│       ├── spells.py            # Spell lookup tools
+│       └── soap.py              # SOAP worldserver command tools
+├── sai_comment_generator.py     # Keira3 SAI comment generator
+├── soap_client.py               # SOAP client for worldserver
+└── keira3/                      # Keira3 submodule (spell database)
+```
+
 ## Usage
 
 ### Running the Server
@@ -125,7 +151,7 @@ Start the MCP server:
 
 ```bash
 source venv/bin/activate
-python server.py
+python main.py
 ```
 
 The server starts on `http://localhost:8080/sse` using Server-Sent Events (SSE) transport.
