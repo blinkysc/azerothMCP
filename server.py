@@ -43,6 +43,15 @@ except ImportError:
     SAI_GENERATOR_AVAILABLE = False
     SaiCommentGenerator = None
 
+# Import SOAP client for worldserver commands
+try:
+    from soap_client import AzerothCoreSOAP, create_soap_client_from_env
+    SOAP_AVAILABLE = True
+except ImportError:
+    SOAP_AVAILABLE = False
+    AzerothCoreSOAP = None
+    create_soap_client_from_env = None
+
 # Load environment variables
 load_dotenv()
 
@@ -70,6 +79,13 @@ WIKI_PATH = Path(os.path.expanduser(os.getenv("WIKI_PATH", "~/wiki/docs")))
 
 # AzerothCore source path (for reading SmartAI implementations)
 AZEROTHCORE_SRC_PATH = Path(os.path.expanduser(os.getenv("AZEROTHCORE_SRC_PATH", "~/azerothcore")))
+
+# SOAP client configuration
+# Set SOAP_ENABLED=true and provide credentials to enable worldserver commands
+SOAP_ENABLED = os.getenv("SOAP_ENABLED", "false").lower() == "true"
+_soap_client = None
+if SOAP_AVAILABLE and SOAP_ENABLED:
+    _soap_client = create_soap_client_from_env()
 
 # Initialize MCP server with SSE settings
 mcp = FastMCP(
@@ -1620,6 +1636,275 @@ def search_quests(name_pattern: str, limit: int = 20) -> str:
         return json.dumps({"error": str(e)})
 
 
+@mcp.tool()
+def diagnose_quest(quest_id: int) -> str:
+    """
+    Comprehensive diagnostic tool for debugging quest issues.
+    Gathers all related data from multiple tables in one call.
+
+    Args:
+        quest_id: The quest ID to diagnose
+
+    Returns:
+        JSON with:
+        - quest_template: Basic quest data (title, level, objectives, rewards)
+        - quest_addon: Chain info (PrevQuestID, NextQuestID, ExclusiveGroup)
+        - quest_givers: NPCs/GameObjects that start this quest
+        - quest_enders: NPCs/GameObjects that complete this quest
+        - required_items: Items needed with names
+        - required_npcs_or_gos: Creatures to kill/interact with or gameobjects
+        - reward_items: Items given on completion with names
+        - conditions: Any conditions that must be met
+        - smart_scripts: Related SAI scripts (source_type=5 for quest scripts)
+        - quest_chain: Previous and next quests in chain
+        - potential_issues: Auto-detected problems
+    """
+    try:
+        results = {}
+        issues = []
+
+        # 1. Get quest_template
+        quest = execute_query(
+            "SELECT * FROM quest_template WHERE ID = %s",
+            "world",
+            (quest_id,)
+        )
+        if not quest:
+            return json.dumps({"error": f"Quest {quest_id} not found"})
+        results["quest_template"] = quest[0]
+        q = quest[0]
+
+        # 2. Get quest_template_addon (chain info)
+        addon = execute_query(
+            "SELECT * FROM quest_template_addon WHERE ID = %s",
+            "world",
+            (quest_id,)
+        )
+        results["quest_addon"] = addon[0] if addon else None
+
+        # 3. Get quest givers (creatures)
+        creature_starters = execute_query(
+            """SELECT cs.id as npc_entry, ct.name
+               FROM creature_queststarter cs
+               JOIN creature_template ct ON cs.id = ct.entry
+               WHERE cs.quest = %s""",
+            "world",
+            (quest_id,)
+        )
+        # Get quest givers (gameobjects)
+        go_starters = execute_query(
+            """SELECT gs.id as go_entry, gt.name
+               FROM gameobject_queststarter gs
+               JOIN gameobject_template gt ON gs.id = gt.entry
+               WHERE gs.quest = %s""",
+            "world",
+            (quest_id,)
+        )
+        results["quest_givers"] = {
+            "creatures": creature_starters,
+            "gameobjects": go_starters
+        }
+        if not creature_starters and not go_starters:
+            issues.append("WARNING: No quest givers found!")
+
+        # 4. Get quest enders (creatures)
+        creature_enders = execute_query(
+            """SELECT ce.id as npc_entry, ct.name
+               FROM creature_questender ce
+               JOIN creature_template ct ON ce.id = ct.entry
+               WHERE ce.quest = %s""",
+            "world",
+            (quest_id,)
+        )
+        # Get quest enders (gameobjects)
+        go_enders = execute_query(
+            """SELECT ge.id as go_entry, gt.name
+               FROM gameobject_questender ge
+               JOIN gameobject_template gt ON ge.id = gt.entry
+               WHERE ge.quest = %s""",
+            "world",
+            (quest_id,)
+        )
+        results["quest_enders"] = {
+            "creatures": creature_enders,
+            "gameobjects": go_enders
+        }
+        if not creature_enders and not go_enders:
+            issues.append("WARNING: No quest enders found!")
+
+        # 5. Get required items with names
+        required_items = []
+        for i in range(1, 7):
+            item_id = q.get(f"RequiredItemId{i}", 0)
+            count = q.get(f"RequiredItemCount{i}", 0)
+            if item_id and count:
+                item = execute_query(
+                    "SELECT name FROM item_template WHERE entry = %s",
+                    "world",
+                    (item_id,)
+                )
+                required_items.append({
+                    "entry": item_id,
+                    "name": item[0]["name"] if item else "UNKNOWN",
+                    "count": count
+                })
+        results["required_items"] = required_items
+
+        # 6. Get required NPCs/GOs to kill/interact
+        required_npcs = []
+        for i in range(1, 5):
+            npc_or_go = q.get(f"RequiredNpcOrGo{i}", 0)
+            count = q.get(f"RequiredNpcOrGoCount{i}", 0)
+            if npc_or_go and count:
+                if npc_or_go > 0:  # Creature
+                    creature = execute_query(
+                        "SELECT name FROM creature_template WHERE entry = %s",
+                        "world",
+                        (npc_or_go,)
+                    )
+                    required_npcs.append({
+                        "type": "creature",
+                        "entry": npc_or_go,
+                        "name": creature[0]["name"] if creature else "UNKNOWN",
+                        "count": count
+                    })
+                else:  # GameObject (negative value)
+                    go = execute_query(
+                        "SELECT name FROM gameobject_template WHERE entry = %s",
+                        "world",
+                        (abs(npc_or_go),)
+                    )
+                    required_npcs.append({
+                        "type": "gameobject",
+                        "entry": abs(npc_or_go),
+                        "name": go[0]["name"] if go else "UNKNOWN",
+                        "count": count
+                    })
+        results["required_npcs_or_gos"] = required_npcs
+
+        # 7. Get reward items with names
+        reward_items = []
+        for i in range(1, 5):
+            item_id = q.get(f"RewardItem{i}", 0)
+            count = q.get(f"RewardAmount{i}", 0)
+            if item_id and count:
+                item = execute_query(
+                    "SELECT name FROM item_template WHERE entry = %s",
+                    "world",
+                    (item_id,)
+                )
+                reward_items.append({
+                    "entry": item_id,
+                    "name": item[0]["name"] if item else "UNKNOWN",
+                    "count": count
+                })
+        results["reward_items"] = reward_items
+
+        # 8. Get choice reward items with names
+        reward_choice_items = []
+        for i in range(1, 7):
+            item_id = q.get(f"RewardChoiceItemID{i}", 0)
+            count = q.get(f"RewardChoiceItemQuantity{i}", 0)
+            if item_id and count:
+                item = execute_query(
+                    "SELECT name FROM item_template WHERE entry = %s",
+                    "world",
+                    (item_id,)
+                )
+                reward_choice_items.append({
+                    "entry": item_id,
+                    "name": item[0]["name"] if item else "UNKNOWN",
+                    "count": count
+                })
+        results["reward_choice_items"] = reward_choice_items
+
+        # 9. Get conditions for this quest (SourceTypeOrReferenceId 19 = QUEST_AVAILABLE, 20 = QUEST_SHOW_MARK)
+        conditions = execute_query(
+            """SELECT * FROM conditions
+               WHERE (SourceTypeOrReferenceId IN (19, 20) AND SourceEntry = %s)
+                  OR (SourceTypeOrReferenceId = 6 AND SourceGroup = %s)""",
+            "world",
+            (quest_id, quest_id)
+        )
+        results["conditions"] = conditions
+
+        # 10. Get related SmartAI scripts (source_type 5 = Quest)
+        scripts = execute_query(
+            "SELECT * FROM smart_scripts WHERE source_type = 5 AND entryorguid = %s ORDER BY id",
+            "world",
+            (quest_id,)
+        )
+        results["smart_scripts"] = scripts
+
+        # 11. Get quest chain
+        chain = {"previous": [], "next": []}
+        if addon and addon[0].get("PrevQuestID"):
+            prev_id = addon[0]["PrevQuestID"]
+            prev_quest = execute_query(
+                "SELECT ID, LogTitle FROM quest_template WHERE ID = %s",
+                "world",
+                (abs(prev_id),)
+            )
+            if prev_quest:
+                chain["previous"].append({
+                    "id": prev_id,
+                    "title": prev_quest[0].get("LogTitle"),
+                    "type": "required" if prev_id > 0 else "breadcrumb"
+                })
+        if addon and addon[0].get("NextQuestID"):
+            next_id = addon[0]["NextQuestID"]
+            next_quest = execute_query(
+                "SELECT ID, LogTitle FROM quest_template WHERE ID = %s",
+                "world",
+                (next_id,)
+            )
+            if next_quest:
+                chain["next"].append({
+                    "id": next_id,
+                    "title": next_quest[0].get("LogTitle")
+                })
+        # Also check RewardNextQuest from quest_template
+        if q.get("RewardNextQuest"):
+            next_id = q["RewardNextQuest"]
+            if not any(n["id"] == next_id for n in chain["next"]):
+                next_quest = execute_query(
+                    "SELECT ID, LogTitle FROM quest_template WHERE ID = %s",
+                    "world",
+                    (next_id,)
+                )
+                if next_quest:
+                    chain["next"].append({
+                        "id": next_id,
+                        "title": next_quest[0].get("LogTitle"),
+                        "source": "RewardNextQuest"
+                    })
+        results["quest_chain"] = chain
+
+        # 12. Auto-detect potential issues
+        if q.get("MinLevel", 0) > q.get("QuestLevel", 0) > 0:
+            issues.append(f"MinLevel ({q['MinLevel']}) > QuestLevel ({q['QuestLevel']})")
+
+        if q.get("AllowableRaces", 0) == 0:
+            issues.append("AllowableRaces is 0 - quest may not be available to any race")
+
+        # Check if required items exist
+        for item in required_items:
+            if item["name"] == "UNKNOWN":
+                issues.append(f"Required item {item['entry']} does not exist in item_template!")
+
+        # Check if required NPCs/GOs exist
+        for npc in required_npcs:
+            if npc["name"] == "UNKNOWN":
+                issues.append(f"Required {npc['type']} {npc['entry']} does not exist!")
+
+        results["potential_issues"] = issues
+
+        return json.dumps(results, indent=2, default=str)
+
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 # =============================================================================
 # ITEM TOOLS
 # =============================================================================
@@ -1963,6 +2248,178 @@ def generate_comments_for_scripts_batch(entity_name: str, scripts_json: str) -> 
 
 
 # =============================================================================
+# SOAP / WORLDSERVER COMMAND TOOLS
+# =============================================================================
+
+@mcp.tool()
+def soap_execute_command(command: str) -> str:
+    """
+    Execute a GM command on a running AzerothCore worldserver via SOAP.
+
+    This allows you to interact with the live server, such as:
+    - Server management: server info, server shutdown, server restart
+    - Account management: account create, account set gmlevel
+    - Character operations: character level, character rename
+    - World modifications: reload commands, npc add
+    - And any other GM command available in-game
+
+    Args:
+        command: The GM command to execute (without leading dot).
+                 Example: "server info", "account create testuser testpass"
+
+    Returns:
+        JSON with success status and command output or error message.
+
+    Requirements:
+        - SOAP must be enabled in worldserver.conf (SOAP.Enabled = 1)
+        - Environment variables must be set:
+          - SOAP_ENABLED=true
+          - SOAP_USERNAME=<admin account>
+          - SOAP_PASSWORD=<account password>
+        - The account must have administrator privileges (SEC_ADMINISTRATOR)
+
+    Examples:
+        - soap_execute_command("server info")
+        - soap_execute_command("account create newplayer password123")
+        - soap_execute_command("reload creature_template")
+    """
+    if not SOAP_AVAILABLE:
+        return json.dumps({
+            "success": False,
+            "error": "SOAP client module not available. Check soap_client.py exists."
+        })
+
+    if not SOAP_ENABLED:
+        return json.dumps({
+            "success": False,
+            "error": "SOAP is not enabled. Set SOAP_ENABLED=true in environment."
+        })
+
+    if _soap_client is None:
+        return json.dumps({
+            "success": False,
+            "error": "SOAP client not configured. Set SOAP_USERNAME and SOAP_PASSWORD."
+        })
+
+    try:
+        response = _soap_client.execute_command(command)
+        return json.dumps({
+            "success": response.success,
+            "message": response.message if response.success else None,
+            "error": response.fault_string if not response.success else None
+        }, indent=2)
+    except ConnectionError as e:
+        return json.dumps({
+            "success": False,
+            "error": f"Connection failed: {e}"
+        })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        })
+
+
+@mcp.tool()
+def soap_server_info() -> str:
+    """
+    Get information about the running AzerothCore worldserver.
+
+    Returns server uptime, connected players, and version information.
+
+    This is a convenience wrapper around soap_execute_command("server info").
+    """
+    return soap_execute_command("server info")
+
+
+@mcp.tool()
+def soap_reload_table(table_name: str) -> str:
+    """
+    Reload a database table on the running worldserver.
+
+    This is useful after making database changes to apply them without restart.
+
+    Args:
+        table_name: The reload command argument. Common commands include:
+
+            Full table reloads (no arguments needed):
+            - smart_scripts
+            - conditions
+            - gossip_menu
+            - gossip_menu_option
+            - npc_trainer
+            - npc_vendor
+            - page_text
+            - areatrigger_teleport
+            - broadcast_text
+            - creature_text
+
+            Entry-specific reloads (append entry ID):
+            - creature_template <entry>  (e.g., "creature_template 448")
+            - quest_template <quest_id>
+            - item_template <entry>
+            - gameobject_template <entry>
+
+            Aggregate reloads:
+            - all (reload everything)
+            - all npc
+            - all quest
+            - all spell
+            - all scripts
+            - all gossips
+            - all loot
+
+    Returns:
+        JSON with success status and reload result.
+
+    Note: Some reload commands may take time on large tables.
+    """
+    return soap_execute_command(f"reload {table_name}")
+
+
+@mcp.tool()
+def soap_check_connection() -> str:
+    """
+    Check if the SOAP connection to worldserver is working.
+
+    Returns:
+        JSON with connection status and server info if connected.
+
+    Use this to verify SOAP is properly configured before running commands.
+    """
+    if not SOAP_AVAILABLE:
+        return json.dumps({
+            "connected": False,
+            "error": "SOAP client module not available"
+        })
+
+    if not SOAP_ENABLED:
+        return json.dumps({
+            "connected": False,
+            "error": "SOAP not enabled (set SOAP_ENABLED=true)"
+        })
+
+    if _soap_client is None:
+        return json.dumps({
+            "connected": False,
+            "error": "SOAP credentials not configured"
+        })
+
+    try:
+        response = _soap_client.execute_command("server info")
+        return json.dumps({
+            "connected": response.success,
+            "server_info": response.message if response.success else None,
+            "error": response.fault_string if not response.success else None
+        }, indent=2)
+    except ConnectionError as e:
+        return json.dumps({
+            "connected": False,
+            "error": str(e)
+        })
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -1996,6 +2453,17 @@ if __name__ == "__main__":
         print("Keira3 SAI Generator: ENABLED")
     else:
         print("Keira3 SAI Generator: NOT AVAILABLE (check sai_comment_generator.py)")
+
+    # SOAP client status
+    if SOAP_AVAILABLE and SOAP_ENABLED:
+        if _soap_client:
+            print(f"SOAP: ENABLED ({_soap_client.host}:{_soap_client.port})")
+        else:
+            print("SOAP: ENABLED but credentials not configured (set SOAP_USERNAME/SOAP_PASSWORD)")
+    elif SOAP_AVAILABLE:
+        print("SOAP: DISABLED (set SOAP_ENABLED=true to enable)")
+    else:
+        print("SOAP: NOT AVAILABLE (check soap_client.py)")
 
     print()
     mcp.run(transport="sse")

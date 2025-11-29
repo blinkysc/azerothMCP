@@ -39,7 +39,14 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 - **get_gameobject_template** / **search_gameobjects** - GameObject lookup
 - **search_spells** - Search spell_dbc by name or ID (disabled by default, for custom spells only)
 - **get_quest_template** / **search_quests** - Quest lookup
+- **diagnose_quest** - Comprehensive quest diagnostics (givers, enders, requirements, chain, conditions, issues)
 - **get_item_template** / **search_items** - Item lookup
+
+### SOAP / Worldserver Command Tools
+- **soap_execute_command** - Execute any GM command on a running worldserver via SOAP
+- **soap_server_info** - Get server uptime, player count, and version info
+- **soap_reload_table** - Hot-reload database tables without server restart
+- **soap_check_connection** - Test SOAP connectivity and authentication
 
 ## Requirements
 
@@ -100,6 +107,14 @@ ENABLE_SPELL_DBC=false
 
 # MCP server port
 MCP_PORT=8080
+
+# SOAP Configuration (optional - for live server commands)
+# Requires SOAP.Enabled = 1 in worldserver.conf
+SOAP_ENABLED=false
+SOAP_HOST=127.0.0.1
+SOAP_PORT=7878
+SOAP_USERNAME=your_admin_account
+SOAP_PASSWORD=your_account_password
 ```
 
 ## Usage
@@ -171,6 +186,39 @@ git clone https://github.com/azerothcore/wiki.git
 ```
 
 The server will search markdown files in `~/wiki/docs` by default. Update `WIKI_PATH` in your `.env` if your wiki is in a different location.
+
+## SOAP Setup (Optional)
+
+SOAP allows executing GM commands on a running worldserver. This enables live server management like reloading tables after database changes, checking server status, or managing accounts.
+
+### 1. Enable SOAP in worldserver.conf
+
+```conf
+SOAP.Enabled = 1
+SOAP.IP = "127.0.0.1"
+SOAP.Port = 7878
+```
+
+### 2. Configure Environment Variables
+
+The account must have administrator privileges (SEC_ADMINISTRATOR, gmlevel 3+):
+
+```env
+SOAP_ENABLED=true
+SOAP_HOST=127.0.0.1
+SOAP_PORT=7878
+SOAP_USERNAME=your_admin_account
+SOAP_PASSWORD=your_account_password
+```
+
+### Example SOAP Commands
+
+Once configured, you can use prompts like:
+
+- "Check if the worldserver is running"
+- "Reload the creature_template table"
+- "Get server info"
+- "Execute command: lookup creature hogger"
 
 ## Security
 
