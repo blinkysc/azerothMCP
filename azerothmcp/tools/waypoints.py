@@ -23,6 +23,8 @@ Provides tools for querying and visualizing creature waypoints and spawn data.
 import json
 import os
 import base64
+import socket
+import subprocess
 from io import BytesIO
 from typing import Optional, List, Dict, Any
 
@@ -51,6 +53,46 @@ try:
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
+
+
+# Track if we've started the viz server
+_viz_server_process = None
+
+
+def _is_port_in_use(port: int) -> bool:
+    """Check if a port is already in use."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
+
+
+def _ensure_viz_server(viz_dir: str, port: int) -> bool:
+    """
+    Ensure the visualization HTTP server is running.
+
+    Returns True if server is available, False otherwise.
+    """
+    global _viz_server_process
+
+    # Check if port is already in use (server might already be running)
+    if _is_port_in_use(port):
+        return True
+
+    # Start the server
+    try:
+        os.makedirs(viz_dir, exist_ok=True)
+        _viz_server_process = subprocess.Popen(
+            ['python3', '-m', 'http.server', str(port)],
+            cwd=viz_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True  # Detach from parent process
+        )
+        # Give it a moment to start
+        import time
+        time.sleep(0.5)
+        return _is_port_in_use(port)
+    except Exception:
+        return False
 
 
 def register_waypoint_tools(mcp):
@@ -1302,12 +1344,18 @@ document.addEventListener('keydown', function(e) {{
             with open(output_file, 'w') as f:
                 f.write(html_content)
 
+            # Ensure visualization server is running
+            viz_port = config.get('VIZ_PORT', 8888)
+            viz_dir = os.path.dirname(output_file)
+            server_started = _ensure_viz_server(viz_dir, viz_port)
+
             return json.dumps({
                 "success": True,
                 "file": output_file,
-                "view_url": f"http://{config.get('VIZ_HOST', 'localhost')}:{config.get('VIZ_PORT', 8888)}/{os.path.basename(output_file)}",
+                "view_url": f"http://{config.get('VIZ_HOST', 'localhost')}:{viz_port}/{os.path.basename(output_file)}",
                 "waypoint_paths": len(waypoints),
                 "terrain_tiles": len([t for t in tiles if t.height_data]),
+                "server_running": server_started,
                 "instructions": "Open view_url in browser. Drag to rotate, scroll to zoom."
             }, indent=2)
 
