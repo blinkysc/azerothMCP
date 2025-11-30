@@ -48,6 +48,7 @@ def register_soap_tools(mcp):
         - Server management: server info, server shutdown, server restart
         - Account management: account create, account set gmlevel
         - Character operations: character level, character rename
+        - Quest operations: quest add, quest complete, quest remove
         - World modifications: reload commands, npc add
         - And any other GM command available in-game
 
@@ -66,10 +67,27 @@ def register_soap_tools(mcp):
               - SOAP_PASSWORD=<account password>
             - The account must have administrator privileges (SEC_ADMINISTRATOR)
 
+        Common Quest Commands:
+            - quest add <quest_id> <charname>      - Add quest to character's quest log
+            - quest complete <quest_id> <charname> - Complete quest for character
+            - quest remove <quest_id> <charname>   - Remove quest from quest log
+            - quest reward <quest_id> <charname>   - Give quest rewards without completing
+
+        Common Character Commands:
+            - character level <charname> <level>   - Set character level
+            - character rename <charname>          - Force rename at next login
+            - lookup player account <charname>     - Get account info for character
+
+        Common Lookup Commands:
+            - lookup quest <name>                  - Find quest ID by name
+            - lookup creature <name>               - Find creature entry by name
+            - lookup item <name>                   - Find item entry by name
+
         Examples:
             - soap_execute_command("server info")
-            - soap_execute_command("account create newplayer password123")
-            - soap_execute_command("reload creature_template")
+            - soap_execute_command("quest add 11286 Playername")
+            - soap_execute_command("quest complete 11286 Playername")
+            - soap_execute_command("reload quest_template 11286")
         """
         if not SOAP_AVAILABLE:
             return json.dumps({
