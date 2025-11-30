@@ -42,6 +42,22 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 - **diagnose_quest** - Comprehensive quest diagnostics (givers, enders, requirements, chain, conditions, breadcrumb detection, issues with fix hints)
 - **get_item_template** / **search_items** - Item lookup
 
+### Conditions Tools
+- **get_conditions** - Get conditions for a specific source (loot, gossip, quest, SmartAI, vendor, etc.)
+- **explain_condition** - Get documentation for condition source types and condition types
+- **diagnose_conditions** - Check conditions for broken references and common issues
+- **search_conditions** - Search for conditions by type or value
+
+### Waypoint Tools
+- **get_waypoint_path** - Get waypoint path data by ID
+- **get_creature_waypoints** - Get all waypoint paths for a creature entry
+- **search_waypoint_paths** - Find waypoint paths in the database
+- **visualize_waypoints** - Generate 2D PNG visualization of waypoints on terrain
+- **visualize_waypoints_3d** - Generate interactive 3D visualization with terrain (opens in browser)
+  - Click waypoints to select, shift+click terrain to move
+  - Accumulate changes and export all SQL statements at once
+  - Shows nearby NPCs and GameObjects as landmarks
+
 ### SOAP / Worldserver Command Tools
 - **soap_execute_command** - Execute any GM command on a running worldserver via SOAP
 - **soap_server_info** - Get server uptime, player count, and version info
@@ -108,6 +124,14 @@ ENABLE_SPELL_DBC=false
 # MCP server port
 MCP_PORT=8080
 
+# Maps path for terrain visualization (optional)
+# Point to your AzerothCore server's maps directory
+MAPS_PATH=~/azerothcore/data/maps
+
+# Visualization server (for remote access to 3D waypoint visualizations)
+VIZ_HOST=localhost
+VIZ_PORT=8888
+
 # SOAP Configuration (optional - for live server commands)
 # Requires SOAP.Enabled = 1 in worldserver.conf
 SOAP_ENABLED=false
@@ -126,6 +150,7 @@ azerothMCP/
 │   ├── __init__.py
 │   ├── config.py                # Configuration (DB, paths, flags)
 │   ├── db.py                    # Database connection & query execution
+│   ├── map_parser.py            # AzerothCore .map file parser for terrain
 │   └── tools/                   # MCP tool modules
 │       ├── __init__.py          # Tool registration
 │       ├── database.py          # Database query tools
@@ -137,7 +162,9 @@ azerothMCP/
 │       ├── quests.py            # Quest tools
 │       ├── items.py             # Item tools
 │       ├── spells.py            # Spell lookup tools
-│       └── soap.py              # SOAP worldserver command tools
+│       ├── soap.py              # SOAP worldserver command tools
+│       ├── conditions.py        # Conditions table tools
+│       └── waypoints.py         # Waypoint visualization tools
 ├── sai_comment_generator.py     # Keira3 SAI comment generator
 ├── soap_client.py               # SOAP client for worldserver
 └── keira3/                      # Keira3 submodule (spell database)

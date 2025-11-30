@@ -30,6 +30,8 @@ from .quests import register_quest_tools
 from .items import register_item_tools
 from .spells import register_spell_tools
 from .soap import register_soap_tools
+from .conditions import register_condition_tools
+from .waypoints import register_waypoint_tools
 
 
 def register_all_tools(mcp):
@@ -44,3 +46,5 @@ def register_all_tools(mcp):
     register_item_tools(mcp)
     register_spell_tools(mcp)
     register_soap_tools(mcp)
+    register_condition_tools(mcp)
+    register_waypoint_tools(mcp)

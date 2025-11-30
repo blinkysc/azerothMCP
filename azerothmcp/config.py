@@ -56,3 +56,27 @@ MCP_PORT = int(os.getenv("MCP_PORT", 8080))
 
 # SOAP configuration
 SOAP_ENABLED = os.getenv("SOAP_ENABLED", "false").lower() == "true"
+
+# Maps data path (for terrain visualization)
+MAPS_PATH = Path(os.path.expanduser(os.getenv("MAPS_PATH", "~/azerothcore/data/maps")))
+
+# Visualization host (for remote access to generated visualizations)
+VIZ_HOST = os.getenv("VIZ_HOST", "localhost")
+VIZ_PORT = int(os.getenv("VIZ_PORT", 8888))
+
+
+def get_config() -> dict:
+    """Return all configuration as a dictionary."""
+    return {
+        "DB_CONFIG": DB_CONFIG,
+        "DB_NAMES": DB_NAMES,
+        "READ_ONLY": READ_ONLY,
+        "ENABLE_SPELL_DBC": ENABLE_SPELL_DBC,
+        "WIKI_PATH": str(WIKI_PATH),
+        "AZEROTHCORE_SRC_PATH": str(AZEROTHCORE_SRC_PATH),
+        "MCP_PORT": MCP_PORT,
+        "SOAP_ENABLED": SOAP_ENABLED,
+        "MAPS_PATH": str(MAPS_PATH),
+        "VIZ_HOST": VIZ_HOST,
+        "VIZ_PORT": VIZ_PORT,
+    }
