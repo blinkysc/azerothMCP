@@ -59,6 +59,17 @@ except ImportError:
 _viz_server_process = None
 
 
+def _get_local_ip() -> str:
+    """Get the local IP address of this machine."""
+    try:
+        result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip().split()[0]
+    except Exception:
+        pass
+    return 'localhost'
+
+
 def _is_port_in_use(port: int) -> bool:
     """Check if a port is already in use."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -1349,10 +1360,15 @@ document.addEventListener('keydown', function(e) {{
             viz_dir = os.path.dirname(output_file)
             server_started = _ensure_viz_server(viz_dir, viz_port)
 
+            # Get host - use auto-detected IP if VIZ_HOST is localhost
+            viz_host = config.get('VIZ_HOST', 'localhost')
+            if viz_host == 'localhost':
+                viz_host = _get_local_ip()
+
             return json.dumps({
                 "success": True,
                 "file": output_file,
-                "view_url": f"http://{config.get('VIZ_HOST', 'localhost')}:{viz_port}/{os.path.basename(output_file)}",
+                "view_url": f"http://{viz_host}:{viz_port}/{os.path.basename(output_file)}",
                 "waypoint_paths": len(waypoints),
                 "terrain_tiles": len([t for t in tiles if t.height_data]),
                 "server_running": server_started,
