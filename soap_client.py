@@ -197,28 +197,31 @@ class AzerothCoreSOAP:
                 return self._parse_response(response.read())
 
         except HTTPError as e:
-            if e.code == 401:
-                return SOAPResponse(
-                    success=False,
-                    message="",
-                    fault_string="Authentication failed. Check username/password and account security level."
-                )
-            elif e.code == 403:
-                return SOAPResponse(
-                    success=False,
-                    message="",
-                    fault_string="Access denied. Account requires administrator privileges (SEC_ADMINISTRATOR)."
-                )
-            else:
-                # Try to parse error response body
-                try:
-                    return self._parse_response(e.read())
-                except Exception:
+            try:
+                if e.code == 401:
                     return SOAPResponse(
                         success=False,
                         message="",
-                        fault_string=f"HTTP error {e.code}: {e.reason}"
+                        fault_string="Authentication failed. Check username/password and account security level."
                     )
+                elif e.code == 403:
+                    return SOAPResponse(
+                        success=False,
+                        message="",
+                        fault_string="Access denied. Account requires administrator privileges (SEC_ADMINISTRATOR)."
+                    )
+                else:
+                    # Try to parse error response body
+                    try:
+                        return self._parse_response(e.read())
+                    except Exception:
+                        return SOAPResponse(
+                            success=False,
+                            message="",
+                            fault_string=f"HTTP error {e.code}: {e.reason}"
+                        )
+            finally:
+                e.close()
 
         except URLError as e:
             raise ConnectionError(
