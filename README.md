@@ -39,7 +39,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 - **get_gameobject_template** / **search_gameobjects** - GameObject lookup
 - **search_spells** - Search spell_dbc by name or ID (disabled by default, for custom spells only)
 - **get_quest_template** / **search_quests** - Quest lookup
-- **diagnose_quest** - Comprehensive quest diagnostics (givers, enders, requirements, chain, conditions, issues)
+- **diagnose_quest** - Comprehensive quest diagnostics (givers, enders, requirements, chain, conditions, breadcrumb detection, issues with fix hints)
 - **get_item_template** / **search_items** - Item lookup
 
 ### SOAP / Worldserver Command Tools

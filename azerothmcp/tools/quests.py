@@ -92,7 +92,10 @@ def register_quest_tools(mcp):
             - conditions: Any conditions that must be met
             - smart_scripts: Related SAI scripts (source_type=5 for quest scripts)
             - quest_chain: Previous and next quests in chain
-            - potential_issues: Auto-detected problems
+            - breadcrumb_quests: Quests that lead to this one (breadcrumbs)
+            - exclusive_group_quests: Other quests in the same ExclusiveGroup
+            - potential_issues: Auto-detected problems (including breadcrumb issues)
+            - hints: Guidance for fixing common issues (breadcrumb setup, ExclusiveGroup, etc.)
         """
         try:
             results = {}
@@ -315,6 +318,63 @@ def register_quest_tools(mcp):
                         })
             results["quest_chain"] = chain
 
+            # 11b. Find breadcrumb quests pointing to this quest
+            # A breadcrumb is a quest where NextQuestID or RewardNextQuest points to this quest
+            breadcrumb_quests = execute_query(
+                """SELECT qta.ID, qt.LogTitle, qta.NextQuestID, qta.ExclusiveGroup,
+                          qt2.RewardNextQuest, qta.PrevQuestID
+                   FROM quest_template_addon qta
+                   JOIN quest_template qt ON qta.ID = qt.ID
+                   LEFT JOIN quest_template qt2 ON qt2.ID = qta.ID
+                   WHERE qta.NextQuestID = %s OR qt2.RewardNextQuest = %s""",
+                "world",
+                (quest_id, quest_id)
+            )
+            results["breadcrumb_quests"] = breadcrumb_quests
+
+            # Also check if this quest's PrevQuestID is in the same ExclusiveGroup (breadcrumb pattern)
+            prev_quest_is_breadcrumb = False
+            if addon and addon[0].get("PrevQuestID") and addon[0].get("ExclusiveGroup"):
+                prev_id = addon[0]["PrevQuestID"]
+                eg = addon[0]["ExclusiveGroup"]
+                if prev_id > 0:  # Positive = required prerequisite
+                    # Check if the prev quest is in the same ExclusiveGroup
+                    prev_in_eg = execute_query(
+                        """SELECT qta.ID, qt.LogTitle, qta.ExclusiveGroup
+                           FROM quest_template_addon qta
+                           JOIN quest_template qt ON qta.ID = qt.ID
+                           WHERE qta.ID = %s AND qta.ExclusiveGroup = %s""",
+                        "world",
+                        (prev_id, eg)
+                    )
+                    if prev_in_eg:
+                        prev_quest_is_breadcrumb = True
+                        # Add this to breadcrumb_quests if not already there
+                        if not any(bc["ID"] == prev_id for bc in breadcrumb_quests):
+                            breadcrumb_quests.append({
+                                "ID": prev_in_eg[0]["ID"],
+                                "LogTitle": prev_in_eg[0]["LogTitle"],
+                                "ExclusiveGroup": prev_in_eg[0]["ExclusiveGroup"],
+                                "NextQuestID": 0,
+                                "RewardNextQuest": 0,
+                                "PrevQuestID": None,
+                                "detected_via": "same_exclusive_group_as_prevquest"
+                            })
+
+            # 11c. Find quests in the same ExclusiveGroup
+            exclusive_group_quests = []
+            if addon and addon[0].get("ExclusiveGroup"):
+                eg = addon[0]["ExclusiveGroup"]
+                exclusive_group_quests = execute_query(
+                    """SELECT qta.ID, qt.LogTitle, qta.ExclusiveGroup
+                       FROM quest_template_addon qta
+                       JOIN quest_template qt ON qta.ID = qt.ID
+                       WHERE qta.ExclusiveGroup = %s AND qta.ID != %s""",
+                    "world",
+                    (eg, quest_id)
+                )
+            results["exclusive_group_quests"] = exclusive_group_quests
+
             # 12. Auto-detect potential issues
             if q.get("MinLevel", 0) > q.get("QuestLevel", 0) > 0:
                 issues.append(f"MinLevel ({q['MinLevel']}) > QuestLevel ({q['QuestLevel']})")
@@ -330,7 +390,119 @@ def register_quest_tools(mcp):
                 if npc["name"] == "UNKNOWN":
                     issues.append(f"Required {npc['type']} {npc['entry']} does not exist!")
 
+            # 12b. Breadcrumb quest issue detection
+            # Check if this quest has breadcrumbs pointing to it that aren't in an ExclusiveGroup
+            if breadcrumb_quests:
+                current_eg = addon[0].get("ExclusiveGroup") if addon else None
+                for bc in breadcrumb_quests:
+                    bc_eg = bc.get("ExclusiveGroup")
+                    # If breadcrumb exists but no ExclusiveGroup set up, this may cause issues
+                    if not bc_eg and not current_eg:
+                        issues.append(
+                            f"BREADCRUMB: Quest {bc['ID']} ('{bc['LogTitle']}') leads to this quest "
+                            f"but neither quest has ExclusiveGroup set. "
+                            f"Players may be able to accept both quests simultaneously."
+                        )
+                    # If breadcrumb has ExclusiveGroup but this quest doesn't share it
+                    elif bc_eg and current_eg != bc_eg:
+                        issues.append(
+                            f"BREADCRUMB: Quest {bc['ID']} has ExclusiveGroup={bc_eg} "
+                            f"but this quest has ExclusiveGroup={current_eg}. "
+                            f"They should share the same ExclusiveGroup for proper breadcrumb behavior."
+                        )
+
+            # Check if this quest incorrectly requires a breadcrumb as prerequisite
+            if addon and addon[0].get("PrevQuestID"):
+                prev_id = addon[0]["PrevQuestID"]
+                if prev_id > 0:  # Positive = required prerequisite
+                    # Check if that prev quest is actually a breadcrumb TO this quest
+                    for bc in breadcrumb_quests:
+                        if bc["ID"] == prev_id:
+                            issues.append(
+                                f"BREADCRUMB BUG: Quest {prev_id} ('{bc['LogTitle']}') is set as a "
+                                f"REQUIRED prerequisite (PrevQuestID > 0), but it appears to be a "
+                                f"breadcrumb quest leading to this one. Breadcrumbs should be optional. "
+                                f"Consider removing the prerequisite requirement."
+                            )
+                            break
+
+            # Additional check: if prev quest is in the same ExclusiveGroup, it's likely a breadcrumb
+            if prev_quest_is_breadcrumb and addon[0].get("PrevQuestID", 0) > 0:
+                prev_id = addon[0]["PrevQuestID"]
+                issues.append(
+                    f"BREADCRUMB PATTERN: Quest {prev_id} is in the same ExclusiveGroup ({addon[0]['ExclusiveGroup']}) "
+                    f"but is also set as a REQUIRED prerequisite (PrevQuestID > 0). "
+                    f"If {prev_id} is a breadcrumb quest, players won't be able to skip it. "
+                    f"Consider setting PrevQuestID to 0 or making it negative (-{prev_id}) if the breadcrumb "
+                    f"should disappear after this quest is completed."
+                )
+
             results["potential_issues"] = issues
+
+            # 13. Add hints for common breadcrumb quest fixes
+            hints = []
+
+            # If breadcrumb issues detected, provide fix guidance
+            if breadcrumb_quests or prev_quest_is_breadcrumb:
+                hints.append({
+                    "category": "breadcrumb_setup",
+                    "description": "Breadcrumb Quest Configuration",
+                    "explanation": (
+                        "Breadcrumb quests are introductory quests that lead players to another quest. "
+                        "They should be OPTIONAL - players can skip them and go directly to the main quest. "
+                        "Accepting the main quest should prevent accepting the breadcrumb."
+                    ),
+                    "solution_pattern": [
+                        "1. Set both quests to the same ExclusiveGroup (usually the breadcrumb quest ID)",
+                        "2. Clear NextQuestID from the breadcrumb's quest_template_addon (set to 0)",
+                        "3. Clear RewardNextQuest from the breadcrumb's quest_template (set to 0)",
+                        "4. Ensure PrevQuestID on the main quest is NOT set to the breadcrumb ID (or use negative value for optional)"
+                    ],
+                    "example_sql": f"""-- Example fix for breadcrumb quest pointing to quest {quest_id}:
+-- Replace BREADCRUMB_ID with the actual breadcrumb quest ID
+
+-- Step 1: Clear the chain links from breadcrumb
+UPDATE `quest_template` SET `RewardNextQuest` = 0 WHERE (`ID` = BREADCRUMB_ID);
+UPDATE `quest_template_addon` SET `NextQuestID` = 0 WHERE (`ID` = BREADCRUMB_ID);
+
+-- Step 2: Put both quests in same ExclusiveGroup (use breadcrumb ID as the group)
+UPDATE `quest_template_addon` SET `ExclusiveGroup` = BREADCRUMB_ID WHERE `ID` IN (BREADCRUMB_ID, {quest_id});
+
+-- Step 3: If this quest incorrectly requires the breadcrumb, remove it
+-- UPDATE `quest_template_addon` SET `PrevQuestID` = 0 WHERE `ID` = {quest_id};""",
+                    "reference": "https://github.com/azerothcore/azerothcore-wotlk/pull/23847"
+                })
+
+            # If PrevQuestID is negative, explain what that means
+            if addon and addon[0].get("PrevQuestID", 0) < 0:
+                hints.append({
+                    "category": "negative_prevquest",
+                    "description": "Negative PrevQuestID Meaning",
+                    "explanation": (
+                        f"PrevQuestID = {addon[0]['PrevQuestID']} (negative) means the quest "
+                        f"{abs(addon[0]['PrevQuestID'])} must NOT be completed for this quest to be available. "
+                        "This is often used when a breadcrumb should disappear once the main quest is done."
+                    )
+                })
+
+            # ExclusiveGroup explanation
+            if addon and addon[0].get("ExclusiveGroup"):
+                eg = addon[0]["ExclusiveGroup"]
+                eg_count = len(exclusive_group_quests) + 1
+                hints.append({
+                    "category": "exclusive_group",
+                    "description": "ExclusiveGroup Behavior",
+                    "explanation": (
+                        f"This quest is in ExclusiveGroup {eg} with {eg_count} total quest(s). "
+                        "Only ONE quest from an ExclusiveGroup can be active at a time. "
+                        "Accepting one will prevent accepting others in the same group. "
+                        "Completing one may auto-complete others (depending on flags). "
+                        "Commonly used for: breadcrumb+main quest pairs, faction-choice quests, "
+                        "or quests with multiple starting NPCs."
+                    )
+                })
+
+            results["hints"] = hints
 
             return json.dumps(results, indent=2, default=str)
 
