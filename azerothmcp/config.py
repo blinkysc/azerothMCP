@@ -45,6 +45,9 @@ READ_ONLY = os.getenv("READ_ONLY", "true").lower() != "false"
 # Enable spell_dbc tool (only needed for custom spells)
 ENABLE_SPELL_DBC = os.getenv("ENABLE_SPELL_DBC", "false").lower() == "true"
 
+# Enable visualization tools (2D/3D waypoint visualization - requires matplotlib/plotly)
+ENABLE_VISUALIZATION = os.getenv("ENABLE_VISUALIZATION", "false").lower() == "true"
+
 # Wiki path for documentation
 WIKI_PATH = Path(os.path.expanduser(os.getenv("WIKI_PATH", "~/wiki/docs")))
 
@@ -72,6 +75,7 @@ def get_config() -> dict:
         "DB_NAMES": DB_NAMES,
         "READ_ONLY": READ_ONLY,
         "ENABLE_SPELL_DBC": ENABLE_SPELL_DBC,
+        "ENABLE_VISUALIZATION": ENABLE_VISUALIZATION,
         "WIKI_PATH": str(WIKI_PATH),
         "AZEROTHCORE_SRC_PATH": str(AZEROTHCORE_SRC_PATH),
         "MCP_PORT": MCP_PORT,
