@@ -1,22 +1,5 @@
 #!/usr/bin/env python3
-#
-# This file is part of the AzerothCore Project. See AUTHORS file for Copyright information
-#
-# This program is free software; you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation; either version 2 of the License, or (at your option) any later
-# version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# this program. If not, see <http://www.gnu.org/licenses/>.
-#
-"""
-SOAP worldserver command tools for AzerothCore MCP Server.
-"""
+"""SOAP worldserver command tools"""
 
 import json
 
@@ -37,75 +20,17 @@ if SOAP_AVAILABLE and SOAP_ENABLED:
 
 
 def register_soap_tools(mcp):
-    """Register SOAP worldserver command tools with the MCP server."""
+    """Register SOAP worldserver command tools."""
 
     @mcp.tool()
     def soap_execute_command(command: str) -> str:
-        """
-        Execute a GM command on a running AzerothCore worldserver via SOAP.
-
-        This allows you to interact with the live server, such as:
-        - Server management: server info, server shutdown, server restart
-        - Account management: account create, account set gmlevel
-        - Character operations: character level, character rename
-        - Quest operations: quest add, quest complete, quest remove
-        - World modifications: reload commands, npc add
-        - And any other GM command available in-game
-
-        Args:
-            command: The GM command to execute (without leading dot).
-                     Example: "server info", "account create testuser testpass"
-
-        Returns:
-            JSON with success status and command output or error message.
-
-        Requirements:
-            - SOAP must be enabled in worldserver.conf (SOAP.Enabled = 1)
-            - Environment variables must be set:
-              - SOAP_ENABLED=true
-              - SOAP_USERNAME=<admin account>
-              - SOAP_PASSWORD=<account password>
-            - The account must have administrator privileges (SEC_ADMINISTRATOR)
-
-        Common Quest Commands:
-            - quest add <quest_id> <charname>      - Add quest to character's quest log
-            - quest complete <quest_id> <charname> - Complete quest for character
-            - quest remove <quest_id> <charname>   - Remove quest from quest log
-            - quest reward <quest_id> <charname>   - Give quest rewards without completing
-
-        Common Character Commands:
-            - character level <charname> <level>   - Set character level
-            - character rename <charname>          - Force rename at next login
-            - lookup player account <charname>     - Get account info for character
-
-        Common Lookup Commands:
-            - lookup quest <name>                  - Find quest ID by name
-            - lookup creature <name>               - Find creature entry by name
-            - lookup item <name>                   - Find item entry by name
-
-        Examples:
-            - soap_execute_command("server info")
-            - soap_execute_command("quest add 11286 Playername")
-            - soap_execute_command("quest complete 11286 Playername")
-            - soap_execute_command("reload quest_template 11286")
-        """
+        """Execute GM command on running worldserver via SOAP."""
         if not SOAP_AVAILABLE:
-            return json.dumps({
-                "success": False,
-                "error": "SOAP client module not available. Check soap_client.py exists."
-            })
-
+            return json.dumps({"success": False, "error": "SOAP client not available"})
         if not SOAP_ENABLED:
-            return json.dumps({
-                "success": False,
-                "error": "SOAP is not enabled. Set SOAP_ENABLED=true in environment."
-            })
-
+            return json.dumps({"success": False, "error": "SOAP not enabled (set SOAP_ENABLED=true)"})
         if _soap_client is None:
-            return json.dumps({
-                "success": False,
-                "error": "SOAP client not configured. Set SOAP_USERNAME and SOAP_PASSWORD."
-            })
+            return json.dumps({"success": False, "error": "SOAP client not configured (set SOAP_USERNAME/PASSWORD)"})
 
         try:
             response = _soap_client.execute_command(command)
@@ -114,109 +39,20 @@ def register_soap_tools(mcp):
                 "message": response.message if response.success else None,
                 "error": response.fault_string if not response.success else None
             }, indent=2)
-        except ConnectionError as e:
-            return json.dumps({
-                "success": False,
-                "error": f"Connection failed: {e}"
-            })
         except Exception as e:
-            return json.dumps({
-                "success": False,
-                "error": str(e)
-            })
+            return json.dumps({"success": False, "error": str(e)})
 
     @mcp.tool()
     def soap_server_info() -> str:
-        """
-        Get information about the running AzerothCore worldserver.
-
-        Returns server uptime, connected players, and version information.
-
-        This is a convenience wrapper around soap_execute_command("server info").
-        """
+        """Get server uptime, player count, and version info."""
         return soap_execute_command("server info")
 
     @mcp.tool()
     def soap_reload_table(table_name: str) -> str:
-        """
-        Reload a database table on the running worldserver.
-
-        This is useful after making database changes to apply them without restart.
-
-        Args:
-            table_name: The reload command argument. Common commands include:
-
-                Full table reloads (no arguments needed):
-                - smart_scripts
-                - conditions
-                - gossip_menu
-                - gossip_menu_option
-                - npc_trainer
-                - npc_vendor
-                - page_text
-                - areatrigger_teleport
-                - broadcast_text
-                - creature_text
-
-                Entry-specific reloads (append entry ID):
-                - creature_template <entry>  (e.g., "creature_template 448")
-                - quest_template <quest_id>
-                - item_template <entry>
-                - gameobject_template <entry>
-
-                Aggregate reloads:
-                - all (reload everything)
-                - all npc
-                - all quest
-                - all spell
-                - all scripts
-                - all gossips
-                - all loot
-
-        Returns:
-            JSON with success status and reload result.
-
-        Note: Some reload commands may take time on large tables.
-        """
+        """Hot-reload database tables without server restart."""
         return soap_execute_command(f"reload {table_name}")
 
     @mcp.tool()
     def soap_check_connection() -> str:
-        """
-        Check if the SOAP connection to worldserver is working.
-
-        Returns:
-            JSON with connection status and server info if connected.
-
-        Use this to verify SOAP is properly configured before running commands.
-        """
-        if not SOAP_AVAILABLE:
-            return json.dumps({
-                "connected": False,
-                "error": "SOAP client module not available"
-            })
-
-        if not SOAP_ENABLED:
-            return json.dumps({
-                "connected": False,
-                "error": "SOAP not enabled (set SOAP_ENABLED=true)"
-            })
-
-        if _soap_client is None:
-            return json.dumps({
-                "connected": False,
-                "error": "SOAP credentials not configured"
-            })
-
-        try:
-            response = _soap_client.execute_command("server info")
-            return json.dumps({
-                "connected": response.success,
-                "server_info": response.message if response.success else None,
-                "error": response.fault_string if not response.success else None
-            }, indent=2)
-        except ConnectionError as e:
-            return json.dumps({
-                "connected": False,
-                "error": str(e)
-            })
+        """Test SOAP connectivity and authentication."""
+        return soap_execute_command("server info")

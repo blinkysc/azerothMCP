@@ -1,22 +1,5 @@
 #!/usr/bin/env python3
-#
-# This file is part of the AzerothCore Project. See AUTHORS file for Copyright information
-#
-# This program is free software; you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation; either version 2 of the License, or (at your option) any later
-# version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# this program. If not, see <http://www.gnu.org/licenses/>.
-#
-"""
-Spell tools for AzerothCore MCP Server.
-"""
+"""Spell tools"""
 
 import json
 
@@ -33,22 +16,13 @@ except ImportError:
 
 
 def register_spell_tools(mcp):
-    """Register spell-related tools with the MCP server."""
+    """Register spell-related tools."""
 
     # Only register spell_dbc search if enabled
     if ENABLE_SPELL_DBC:
         @mcp.tool()
         def search_spells(name_or_id: str, limit: int = 20) -> str:
-            """
-            Search for spells by name or ID in spell_dbc (custom spells only).
-
-            Args:
-                name_or_id: Spell name pattern or ID number
-                limit: Maximum results
-
-            Returns:
-                Matching spells
-            """
+            """Search for custom spells in spell_dbc by name or ID."""
             try:
                 if name_or_id.isdigit():
                     results = execute_query(
@@ -68,18 +42,7 @@ def register_spell_tools(mcp):
 
     @mcp.tool()
     def get_spell_name(spell_id: int) -> str:
-        """
-        Get a spell name from Keira3's sqlite database.
-
-        This uses the offline spell database bundled with Keira3, which contains
-        all spell names from the WoW 3.3.5a client data.
-
-        Args:
-            spell_id: The spell ID to look up
-
-        Returns:
-            Spell name and ID
-        """
+        """Look up spell name by ID from Keira3's offline database."""
         if not SAI_GENERATOR_AVAILABLE:
             return json.dumps({"error": "SAI comment generator not available"})
 
@@ -95,15 +58,7 @@ def register_spell_tools(mcp):
 
     @mcp.tool()
     def lookup_spell_names(spell_ids: str) -> str:
-        """
-        Look up multiple spell names at once from Keira3's sqlite database.
-
-        Args:
-            spell_ids: Comma-separated list of spell IDs (e.g. "1234,5678,9012")
-
-        Returns:
-            Dictionary mapping spell IDs to names
-        """
+        """Batch lookup multiple spell names (comma-separated IDs)."""
         if not SAI_GENERATOR_AVAILABLE:
             return json.dumps({"error": "SAI comment generator not available"})
 

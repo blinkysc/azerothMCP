@@ -1,22 +1,5 @@
 #!/usr/bin/env python3
-#
-# This file is part of the AzerothCore Project. See AUTHORS file for Copyright information
-#
-# This program is free software; you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation; either version 2 of the License, or (at your option) any later
-# version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# this program. If not, see <http://www.gnu.org/licenses/>.
-#
-"""
-GameObject tools for AzerothCore MCP Server.
-"""
+"""GameObject tools"""
 
 import json
 
@@ -24,19 +7,11 @@ from ..db import execute_query
 
 
 def register_gameobject_tools(mcp):
-    """Register gameobject-related tools with the MCP server."""
+    """Register gameobject-related tools."""
 
     @mcp.tool()
-    def get_gameobject_template(entry: int) -> str:
-        """
-        Get gameobject_template data by entry ID.
-
-        Args:
-            entry: The gameobject entry ID
-
-        Returns:
-            Complete gameobject template data
-        """
+    def get_gameobject_template(entry: int, full: bool = False) -> str:
+        """Get gameobject_template data (compacted by default, use full=True for all 36 fields)."""
         try:
             results = execute_query(
                 "SELECT * FROM gameobject_template WHERE entry = %s",
@@ -45,22 +20,50 @@ def register_gameobject_tools(mcp):
             )
             if not results:
                 return json.dumps({"error": f"No gameobject found with entry {entry}"})
-            return json.dumps(results[0], indent=2, default=str)
+
+            go = results[0]
+
+            if full:
+                return json.dumps(go, indent=2, default=str)
+
+            # Return essential fields only (36 → ~8 + non-zero Data fields)
+            compact = {
+                "entry": go["entry"],
+                "name": go.get("name"),
+                "type": go.get("type"),
+                "displayId": go.get("displayId"),
+                "size": go.get("size"),
+            }
+
+            # Add optional fields only if non-empty
+            if go.get("IconName"):
+                compact["IconName"] = go["IconName"]
+            if go.get("castBarCaption"):
+                compact["castBarCaption"] = go["castBarCaption"]
+
+            # Add non-zero Data fields
+            data_fields = {}
+            for i in range(24):  # Data0-Data23
+                field_name = f"Data{i}"
+                if go.get(field_name):
+                    data_fields[field_name] = go[field_name]
+            if data_fields:
+                compact["data"] = data_fields
+
+            # Add AIName if present
+            if go.get("AIName"):
+                compact["AIName"] = go["AIName"]
+            if go.get("ScriptName"):
+                compact["ScriptName"] = go["ScriptName"]
+
+            compact["_hint"] = "Use full=True for all 36 fields"
+            return json.dumps(compact, indent=2, default=str)
         except Exception as e:
             return json.dumps({"error": str(e)})
 
     @mcp.tool()
     def search_gameobjects(name_pattern: str, limit: int = 20) -> str:
-        """
-        Search for gameobjects by name.
-
-        Args:
-            name_pattern: Name to search for (uses SQL LIKE)
-            limit: Maximum results
-
-        Returns:
-            Matching gameobjects with entry, name, and type
-        """
+        """Search gameobjects by name pattern."""
         try:
             results = execute_query(
                 f"SELECT entry, name, type FROM gameobject_template WHERE name LIKE %s LIMIT {min(limit, 100)}",

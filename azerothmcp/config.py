@@ -48,6 +48,12 @@ ENABLE_SPELL_DBC = os.getenv("ENABLE_SPELL_DBC", "false").lower() == "true"
 # Enable visualization tools (2D/3D waypoint visualization - requires matplotlib/plotly)
 ENABLE_VISUALIZATION = os.getenv("ENABLE_VISUALIZATION", "false").lower() == "true"
 
+# Enable wiki search tools (disabled by default to reduce token usage)
+ENABLE_WIKI = os.getenv("ENABLE_WIKI", "false").lower() == "true"
+
+# Enable source code search tools (disabled by default to reduce token usage)
+ENABLE_SOURCE_CODE = os.getenv("ENABLE_SOURCE_CODE", "false").lower() == "true"
+
 # Wiki path for documentation
 WIKI_PATH = Path(os.path.expanduser(os.getenv("WIKI_PATH", "~/wiki/docs")))
 
@@ -76,6 +82,8 @@ def get_config() -> dict:
         "READ_ONLY": READ_ONLY,
         "ENABLE_SPELL_DBC": ENABLE_SPELL_DBC,
         "ENABLE_VISUALIZATION": ENABLE_VISUALIZATION,
+        "ENABLE_WIKI": ENABLE_WIKI,
+        "ENABLE_SOURCE_CODE": ENABLE_SOURCE_CODE,
         "WIKI_PATH": str(WIKI_PATH),
         "AZEROTHCORE_SRC_PATH": str(AZEROTHCORE_SRC_PATH),
         "MCP_PORT": MCP_PORT,

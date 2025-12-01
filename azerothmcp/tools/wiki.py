@@ -1,22 +1,5 @@
 #!/usr/bin/env python3
-#
-# This file is part of the AzerothCore Project. See AUTHORS file for Copyright information
-#
-# This program is free software; you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation; either version 2 of the License, or (at your option) any later
-# version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# this program. If not, see <http://www.gnu.org/licenses/>.
-#
-"""
-Wiki documentation tools for AzerothCore MCP Server.
-"""
+"""Wiki documentation tools"""
 
 import json
 
@@ -24,20 +7,11 @@ from ..config import WIKI_PATH
 
 
 def register_wiki_tools(mcp):
-    """Register wiki documentation tools with the MCP server."""
+    """Register wiki documentation tools."""
 
     @mcp.tool()
     def search_wiki(query: str, max_results: int = 10) -> str:
-        """
-        Search the AzerothCore wiki documentation for relevant information.
-
-        Args:
-            query: Search terms (searches file names and content)
-            max_results: Maximum number of results to return
-
-        Returns:
-            List of matching wiki pages with snippets
-        """
+        """Search AzerothCore wiki documentation."""
         results = []
         query_lower = query.lower()
         query_terms = query_lower.split()
@@ -84,15 +58,7 @@ def register_wiki_tools(mcp):
 
     @mcp.tool()
     def read_wiki_page(filename: str) -> str:
-        """
-        Read a specific wiki documentation page.
-
-        Args:
-            filename: The wiki file name (e.g., 'smart_scripts.md', 'creature_template.md')
-
-        Returns:
-            The content of the wiki page (may be truncated if very large)
-        """
+        """Read a specific wiki documentation page."""
         try:
             wiki_file = WIKI_PATH / filename
             if not wiki_file.exists():
