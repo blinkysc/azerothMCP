@@ -25,6 +25,28 @@ The conditions system allows defining prerequisites for various game systems:
 - SmartAI script execution
 - NPC vendors
 - And more
+
+IMPORTANT - Loot Conditions and StartQuest Items:
+=================================================
+When using conditions on loot items that have a `startquest` field set in item_template,
+be aware that the core performs ADDITIONAL checks AFTER conditions pass:
+
+In LootMgr.cpp AllowedForPlayer(), for items with StartQuest:
+1. Conditions are checked FIRST via sConditionMgr->IsObjectMeetToConditions()
+2. THEN the core checks StartQuest logic:
+   - If player already has the quest in log (any status != NONE) -> blocked
+   - If player already has max count of the item -> blocked
+   - If quest has PrevQuestID and player hasn't REWARDED that quest -> blocked
+
+This means if you want an item to drop while a prerequisite quest is ACTIVE (taken but
+not completed), you must set PrevQuestID=0 on the quest that the item starts, and use
+loot conditions to control when the item drops instead.
+
+Example: Item 43242 (Jagged Shard) starts quest 13136 (Jagged Shards).
+- Quest 13136 originally had PrevQuestID=13134 (Spill Their Blood)
+- Conditions allowed drop when quest 13134 was taken OR completed
+- BUT core blocked drop when 13134 was taken because PrevQuestID wasn't REWARDED
+- Fix: Set PrevQuestID=0 on quest 13136, let conditions handle prerequisites
 """
 
 import json
@@ -47,7 +69,14 @@ SOURCE_TYPES = {
         "description": "Condition for creature loot drops",
         "source_group": "creature_loot_template.Entry",
         "source_entry": "Item ID from loot_template.Item",
-        "condition_targets": {0: "Player looting"}
+        "condition_targets": {0: "Player looting"},
+        "notes": (
+            "IMPORTANT: For items with StartQuest set, conditions are checked FIRST, "
+            "but the core then checks if player can start the quest. If the quest has "
+            "PrevQuestID set, the item won't drop unless PrevQuestID is REWARDED (not just taken). "
+            "To allow drops while a prereq quest is active, set PrevQuestID=0 on the quest "
+            "and use loot conditions to control prerequisites instead."
+        )
     },
     2: {
         "name": "CONDITION_SOURCE_TYPE_DISENCHANT_LOOT_TEMPLATE",
@@ -68,7 +97,14 @@ SOURCE_TYPES = {
         "description": "Condition for gameobject loot (chests, etc.)",
         "source_group": "gameobject_loot_template.Entry",
         "source_entry": "Item ID",
-        "condition_targets": {0: "Player looting"}
+        "condition_targets": {0: "Player looting"},
+        "notes": (
+            "IMPORTANT: For items with StartQuest set, conditions are checked FIRST, "
+            "but the core then checks if player can start the quest. If the quest has "
+            "PrevQuestID set, the item won't drop unless PrevQuestID is REWARDED (not just taken). "
+            "To allow drops while a prereq quest is active, set PrevQuestID=0 on the quest "
+            "and use loot conditions to control prerequisites instead."
+        )
     },
     5: {
         "name": "CONDITION_SOURCE_TYPE_ITEM_LOOT_TEMPLATE",
