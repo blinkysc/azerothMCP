@@ -61,6 +61,10 @@ def _get_tool_catalog():
         "soap": {
             "description": "Live server GM commands via SOAP",
             "tools": ["soap_execute_command", "soap_server_info", "soap_reload_table", "soap_check_connection"]
+        },
+        "sandbox": {
+            "description": "Programmatic multi-query investigations (execute Python code)",
+            "tools": ["execute_investigation", "list_sandbox_functions"]
         }
     }
 

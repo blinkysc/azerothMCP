@@ -21,6 +21,8 @@ This package contains all the tool modules that are registered with the MCP serv
 Uses progressive disclosure with minimal docstrings and lazy-loaded reference data.
 """
 
+import logging
+
 # Import discovery tools FIRST - these enable progressive exploration
 from .discovery import register_discovery_tools
 
@@ -37,11 +39,18 @@ from .conditions import register_condition_tools
 from .waypoints import register_waypoint_tools
 
 # Optional imports (controlled by config)
-from ..config import ENABLE_WIKI, ENABLE_SOURCE_CODE
+from ..config import ENABLE_WIKI, ENABLE_SOURCE_CODE, ENABLE_SANDBOX, LOG_TOOL_CALLS, LOG_LEVEL
 if ENABLE_WIKI:
     from .wiki import register_wiki_tools
 if ENABLE_SOURCE_CODE:
     from .source import register_source_tools
+if ENABLE_SANDBOX:
+    from .sandbox import register_sandbox_tools
+
+# Configure logging based on settings
+if LOG_TOOL_CALLS:
+    from ..logging import tool_logger
+    tool_logger.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
 
 def register_all_tools(mcp):
@@ -66,3 +75,5 @@ def register_all_tools(mcp):
         register_wiki_tools(mcp)
     if ENABLE_SOURCE_CODE:
         register_source_tools(mcp)
+    if ENABLE_SANDBOX:
+        register_sandbox_tools(mcp)

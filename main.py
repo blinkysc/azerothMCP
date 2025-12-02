@@ -35,6 +35,9 @@ from azerothmcp.config import (
     ENABLE_SPELL_DBC,
     MCP_PORT,
     SOAP_ENABLED,
+    ENABLE_SANDBOX,
+    LOG_TOOL_CALLS,
+    LOG_LEVEL,
 )
 from azerothmcp.tools import register_all_tools
 
@@ -106,6 +109,18 @@ def print_startup_info():
         print("SOAP: DISABLED (set SOAP_ENABLED=true to enable)")
     else:
         print("SOAP: NOT AVAILABLE (check soap_client.py)")
+
+    # Sandbox status (programmatic tool calling)
+    if ENABLE_SANDBOX:
+        print("Sandbox: ENABLED (execute_investigation tool available)")
+    else:
+        print("Sandbox: DISABLED (set ENABLE_SANDBOX=true to enable)")
+
+    # Logging status
+    if LOG_TOOL_CALLS:
+        print(f"Tool Logging: ENABLED (level={LOG_LEVEL})")
+    else:
+        print("Tool Logging: DISABLED (set LOG_TOOL_CALLS=true to enable)")
 
     print()
 

@@ -66,6 +66,13 @@ MCP_PORT = int(os.getenv("MCP_PORT", 8080))
 # SOAP configuration
 SOAP_ENABLED = os.getenv("SOAP_ENABLED", "false").lower() == "true"
 
+# Sandbox configuration (programmatic tool calling)
+ENABLE_SANDBOX = os.getenv("ENABLE_SANDBOX", "true").lower() == "true"
+
+# Logging configuration
+LOG_TOOL_CALLS = os.getenv("LOG_TOOL_CALLS", "true").lower() == "true"
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
 # Maps data path (for terrain visualization)
 MAPS_PATH = Path(os.path.expanduser(os.getenv("MAPS_PATH", "~/azerothcore/data/maps")))
 
@@ -84,6 +91,9 @@ def get_config() -> dict:
         "ENABLE_VISUALIZATION": ENABLE_VISUALIZATION,
         "ENABLE_WIKI": ENABLE_WIKI,
         "ENABLE_SOURCE_CODE": ENABLE_SOURCE_CODE,
+        "ENABLE_SANDBOX": ENABLE_SANDBOX,
+        "LOG_TOOL_CALLS": LOG_TOOL_CALLS,
+        "LOG_LEVEL": LOG_LEVEL,
         "WIKI_PATH": str(WIKI_PATH),
         "AZEROTHCORE_SRC_PATH": str(AZEROTHCORE_SRC_PATH),
         "MCP_PORT": MCP_PORT,

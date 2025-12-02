@@ -2,9 +2,14 @@
 """Creature/NPC tools"""
 
 import json
+import time
 
 from ..db import execute_query
+from ..config import LOG_TOOL_CALLS
 from .smartai import add_sai_comments
+
+if LOG_TOOL_CALLS:
+    from ..logging import tool_logger
 
 
 def register_creature_tools(mcp):
@@ -13,6 +18,9 @@ def register_creature_tools(mcp):
     @mcp.tool()
     def get_creature_template(entry: int, full: bool = False) -> str:
         """Get creature_template data (compacted by default, use full=True for all 61 fields)."""
+        start_time = time.time()
+        error = None
+        result = None
         try:
             results = execute_query(
                 "SELECT * FROM creature_template WHERE entry = %s",
@@ -20,12 +28,14 @@ def register_creature_tools(mcp):
                 (entry,)
             )
             if not results:
-                return json.dumps({"error": f"No creature found with entry {entry}"})
+                result = json.dumps({"error": f"No creature found with entry {entry}"})
+                return result
 
             creature = results[0]
 
             if full:
-                return json.dumps(creature, indent=2, default=str)
+                result = json.dumps(creature, indent=2, default=str)
+                return result
 
             # Return essential fields only (61 → ~15)
             compact = {
@@ -51,22 +61,51 @@ def register_creature_tools(mcp):
                 compact["trainer_type"] = creature["trainer_type"]
 
             compact["_hint"] = "Use full=True for all 61 fields"
-            return json.dumps(compact, indent=2, default=str)
+            result = json.dumps(compact, indent=2, default=str)
+            return result
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            error = str(e)
+            result = json.dumps({"error": error})
+            return result
+        finally:
+            if LOG_TOOL_CALLS:
+                tool_logger.log_tool_call(
+                    tool_name="get_creature_template",
+                    category="creatures",
+                    params={"entry": entry, "full": full},
+                    result=result,
+                    duration=time.time() - start_time,
+                    error=error,
+                )
 
     @mcp.tool()
     def search_creatures(name_pattern: str, limit: int = 20) -> str:
         """Search for creatures by name pattern."""
+        start_time = time.time()
+        error = None
+        result = None
         try:
             results = execute_query(
                 f"SELECT entry, name, subname, minlevel, maxlevel FROM creature_template WHERE name LIKE %s LIMIT {min(limit, 100)}",
                 "world",
                 (f"%{name_pattern}%",)
             )
-            return json.dumps(results, indent=2, default=str)
+            result = json.dumps(results, indent=2, default=str)
+            return result
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            error = str(e)
+            result = json.dumps({"error": error})
+            return result
+        finally:
+            if LOG_TOOL_CALLS:
+                tool_logger.log_tool_call(
+                    tool_name="search_creatures",
+                    category="creatures",
+                    params={"name_pattern": name_pattern, "limit": limit},
+                    result=result,
+                    duration=time.time() - start_time,
+                    error=error,
+                )
 
     @mcp.tool()
     def get_creature_with_scripts(entry: int) -> str:
