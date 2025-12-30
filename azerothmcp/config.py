@@ -48,6 +48,19 @@ ENABLE_SPELL_DBC = os.getenv("ENABLE_SPELL_DBC", "false").lower() == "true"
 # Enable visualization tools (2D/3D waypoint visualization - requires matplotlib/plotly)
 ENABLE_VISUALIZATION = os.getenv("ENABLE_VISUALIZATION", "false").lower() == "true"
 
+# Enable packet parser tools (requires WowPacketParser)
+ENABLE_PACKET_PARSER = os.getenv("ENABLE_PACKET_PARSER", "false").lower() == "true"
+
+# Enable DBC parser tools (for reading Spell.dbc directly)
+ENABLE_DBC_PARSER = os.getenv("ENABLE_DBC_PARSER", "true").lower() == "true"
+
+# DBC files path
+DBC_PATH = Path(os.path.expanduser(os.getenv("DBC_PATH", "~/azerothcore/data/dbc")))
+
+# WowPacketParser paths
+WPP_PATH = Path(os.path.expanduser(os.getenv("WPP_PATH", "~/WowPacketParser/WowPacketParser/bin/Release")))
+DOTNET_PATH = os.getenv("DOTNET_PATH", os.path.expanduser("~/.dotnet/dotnet"))
+
 # Enable wiki search tools (disabled by default to reduce token usage)
 ENABLE_WIKI = os.getenv("ENABLE_WIKI", "false").lower() == "true"
 
@@ -89,6 +102,9 @@ def get_config() -> dict:
         "READ_ONLY": READ_ONLY,
         "ENABLE_SPELL_DBC": ENABLE_SPELL_DBC,
         "ENABLE_VISUALIZATION": ENABLE_VISUALIZATION,
+        "ENABLE_PACKET_PARSER": ENABLE_PACKET_PARSER,
+        "ENABLE_DBC_PARSER": ENABLE_DBC_PARSER,
+        "DBC_PATH": str(DBC_PATH),
         "ENABLE_WIKI": ENABLE_WIKI,
         "ENABLE_SOURCE_CODE": ENABLE_SOURCE_CODE,
         "ENABLE_SANDBOX": ENABLE_SANDBOX,
@@ -101,4 +117,6 @@ def get_config() -> dict:
         "MAPS_PATH": str(MAPS_PATH),
         "VIZ_HOST": VIZ_HOST,
         "VIZ_PORT": VIZ_PORT,
+        "WPP_PATH": str(WPP_PATH),
+        "DOTNET_PATH": DOTNET_PATH,
     }

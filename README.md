@@ -77,6 +77,27 @@ This MCP implements **progressive disclosure** patterns to minimize token usage:
 - **soap_reload_table** - Hot-reload database tables without server restart
 - **soap_check_connection** - Test SOAP connectivity and authentication
 
+### Packet Parser Tools (WowPacketParser Integration)
+Targeted extraction from WowPacketParser sniff files. Designed for context-efficient analysis of large parsed files.
+
+**Navigation:**
+- **list_packet_types** - List all opcodes in a parsed file with counts
+- **search_packets** - Find packets by opcode, entry ID, content, or packet range
+- **get_packet_by_number** - Get a specific packet by number
+- **get_packets_around** - Get context around a packet (packets before/after)
+
+**Structured Extraction:**
+- **extract_creature_queries** - Extract creature template data from SMSG_QUERY_CREATURE_RESPONSE
+- **extract_gameobject_queries** - Extract gameobject data from SMSG_QUERY_GAMEOBJECT_RESPONSE
+- **extract_quest_queries** - Extract quest info from SMSG_QUERY_QUEST_INFO_RESPONSE
+- **extract_monster_moves** - Extract movement/waypoint data from SMSG_ON_MONSTER_MOVE
+- **extract_chat_messages** - Extract NPC says/yells/emotes from SMSG_CHAT
+- **extract_spell_casts** - Extract spell cast data from SMSG_SPELL_GO
+- **extract_emotes** - Extract emote animations from SMSG_EMOTE
+
+**Advanced:**
+- **parse_pkt_targeted** - Run WowPacketParser on a .pkt file with filters (opcode, entry, packet limit)
+
 ## Requirements
 
 - Python 3.10+
@@ -160,6 +181,11 @@ SOAP_HOST=127.0.0.1
 SOAP_PORT=7878
 SOAP_USERNAME=your_admin_account
 SOAP_PASSWORD=your_account_password
+
+# WowPacketParser Configuration (optional - for sniff analysis)
+ENABLE_PACKET_PARSER=true
+WPP_PATH=~/WowPacketParser/WowPacketParser/bin/Release
+DOTNET_PATH=~/.dotnet/dotnet
 ```
 
 ## Project Structure
@@ -185,7 +211,8 @@ azerothMCP/
 │       ├── spells.py            # Spell lookup tools
 │       ├── soap.py              # SOAP worldserver command tools
 │       ├── conditions.py        # Conditions table tools
-│       └── waypoints.py         # Waypoint visualization tools
+│       ├── waypoints.py         # Waypoint visualization tools
+│       └── packets.py           # WowPacketParser sniff analysis tools
 ├── sai_comment_generator.py     # Keira3 SAI comment generator
 ├── soap_client.py               # SOAP client for worldserver
 └── keira3/                      # Keira3 submodule (spell database)

@@ -5,7 +5,7 @@ Minimal tool catalog for navigation only.
 """
 
 import json
-from ..config import ENABLE_WIKI, ENABLE_SOURCE_CODE
+from ..config import ENABLE_WIKI, ENABLE_SOURCE_CODE, ENABLE_PACKET_PARSER, ENABLE_DBC_PARSER
 
 # Minimal tool catalog - just categories and basic info
 def _get_tool_catalog():
@@ -65,6 +65,14 @@ def _get_tool_catalog():
         "sandbox": {
             "description": "Programmatic multi-query investigations (execute Python code)",
             "tools": ["execute_investigation", "list_sandbox_functions"]
+        },
+        "procs": {
+            "description": "Spell proc system (spell_proc table, QAston system)",
+            "tools": [
+                "get_spell_proc", "search_spell_procs", "explain_proc_flags",
+                "list_proc_flag_types", "diagnose_spell_proc", "get_spell_proc_schema",
+                "compare_proc_tables"
+            ]
         }
     }
 
@@ -79,6 +87,27 @@ def _get_tool_catalog():
         catalog["source"] = {
             "description": "C++ source code search and reading",
             "tools": ["search_azerothcore_source", "read_source_file"]
+        }
+
+    if ENABLE_PACKET_PARSER:
+        catalog["packets"] = {
+            "description": "WowPacketParser sniff analysis (targeted extraction)",
+            "tools": [
+                "list_packet_types", "search_packets", "get_packet_by_number", "get_packets_around",
+                "extract_creature_queries", "extract_gameobject_queries", "extract_quest_queries",
+                "extract_monster_moves", "extract_chat_messages", "extract_spell_casts",
+                "extract_emotes", "parse_pkt_targeted"
+            ]
+        }
+
+    if ENABLE_DBC_PARSER:
+        catalog["dbc"] = {
+            "description": "Spell.dbc and other DBC file access",
+            "tools": [
+                "get_spell_from_dbc", "search_spells_dbc", "get_spell_dbc_proc_info",
+                "get_spell_name_dbc", "batch_lookup_spell_names_dbc",
+                "compare_spell_dbc_vs_proc", "get_dbc_stats"
+            ]
         }
 
     return catalog

@@ -37,15 +37,20 @@ from .spells import register_spell_tools
 from .soap import register_soap_tools
 from .conditions import register_condition_tools
 from .waypoints import register_waypoint_tools
+from .procs import register_proc_tools
 
 # Optional imports (controlled by config)
-from ..config import ENABLE_WIKI, ENABLE_SOURCE_CODE, ENABLE_SANDBOX, LOG_TOOL_CALLS, LOG_LEVEL
+from ..config import ENABLE_WIKI, ENABLE_SOURCE_CODE, ENABLE_SANDBOX, ENABLE_PACKET_PARSER, ENABLE_DBC_PARSER, LOG_TOOL_CALLS, LOG_LEVEL
 if ENABLE_WIKI:
     from .wiki import register_wiki_tools
 if ENABLE_SOURCE_CODE:
     from .source import register_source_tools
 if ENABLE_SANDBOX:
     from .sandbox import register_sandbox_tools
+if ENABLE_PACKET_PARSER:
+    from .packets import register_packet_tools
+if ENABLE_DBC_PARSER:
+    from .dbc import register_dbc_tools
 
 # Configure logging based on settings
 if LOG_TOOL_CALLS:
@@ -69,6 +74,7 @@ def register_all_tools(mcp):
     register_soap_tools(mcp)
     register_condition_tools(mcp)
     register_waypoint_tools(mcp)
+    register_proc_tools(mcp)
 
     # Register optional tools if enabled
     if ENABLE_WIKI:
@@ -77,3 +83,7 @@ def register_all_tools(mcp):
         register_source_tools(mcp)
     if ENABLE_SANDBOX:
         register_sandbox_tools(mcp)
+    if ENABLE_PACKET_PARSER:
+        register_packet_tools(mcp)
+    if ENABLE_DBC_PARSER:
+        register_dbc_tools(mcp)

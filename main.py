@@ -33,6 +33,8 @@ from azerothmcp.config import (
     WIKI_PATH,
     AZEROTHCORE_SRC_PATH,
     ENABLE_SPELL_DBC,
+    ENABLE_PACKET_PARSER,
+    WPP_PATH,
     MCP_PORT,
     SOAP_ENABLED,
     ENABLE_SANDBOX,
@@ -115,6 +117,16 @@ def print_startup_info():
         print("Sandbox: ENABLED (execute_investigation tool available)")
     else:
         print("Sandbox: DISABLED (set ENABLE_SANDBOX=true to enable)")
+
+    # WowPacketParser status
+    if ENABLE_PACKET_PARSER:
+        wpp_dll = WPP_PATH / "WowPacketParser.dll"
+        if wpp_dll.exists():
+            print(f"Packet Parser: ENABLED ({WPP_PATH})")
+        else:
+            print(f"Packet Parser: ENABLED but WPP not found ({WPP_PATH})")
+    else:
+        print("Packet Parser: DISABLED (set ENABLE_PACKET_PARSER=true to enable)")
 
     # Logging status
     if LOG_TOOL_CALLS:
