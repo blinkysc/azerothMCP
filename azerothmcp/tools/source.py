@@ -42,7 +42,9 @@ def register_source_tools(mcp):
             return json.dumps({"error": "AzerothCore source path not configured"})
 
         try:
-            full_path = AZEROTHCORE_SRC_PATH / file_path
+            full_path = (AZEROTHCORE_SRC_PATH / file_path).resolve()
+            if not str(full_path).startswith(str(AZEROTHCORE_SRC_PATH.resolve())):
+                return json.dumps({"error": "Path traversal not allowed"})
             if not full_path.exists():
                 return json.dumps({"error": f"File not found: {file_path}"})
 

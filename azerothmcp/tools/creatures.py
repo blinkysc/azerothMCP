@@ -57,10 +57,7 @@ def register_creature_tools(mcp):
                 compact["gossip_menu_id"] = creature["gossip_menu_id"]
             if creature.get("lootid"):
                 compact["lootid"] = creature["lootid"]
-            if creature.get("trainer_type"):
-                compact["trainer_type"] = creature["trainer_type"]
-
-            compact["_hint"] = "Use full=True for all 61 fields"
+            compact["_hint"] = "Use full=True for all fields"
             result = json.dumps(compact, indent=2, default=str)
             return result
         except Exception as e:

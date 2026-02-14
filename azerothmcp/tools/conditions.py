@@ -209,7 +209,7 @@ def register_condition_tools(mcp):
                 # CONDITION_QUESTREWARDED (8), CONDITION_QUESTTAKEN (9), CONDITION_QUESTSTATE (47)
                 if cond_type in [8, 9, 47] and value1 > 0:
                     quest_check = execute_query(
-                        "SELECT ID, Title FROM quest_template WHERE ID = %s",
+                        "SELECT ID, LogTitle FROM quest_template WHERE ID = %s",
                         "world",
                         (value1,)
                     )

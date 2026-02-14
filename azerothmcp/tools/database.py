@@ -92,7 +92,7 @@ def register_database_tools(mcp):
         result = None
         try:
             if filter_pattern:
-                results = execute_query(f"SHOW TABLES LIKE '{filter_pattern}'", database)
+                results = execute_query("SHOW TABLES LIKE %s", database, (filter_pattern,))
             else:
                 results = execute_query("SHOW TABLES", database)
 

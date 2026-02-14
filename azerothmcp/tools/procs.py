@@ -88,18 +88,6 @@ def register_proc_tools(mcp):
                 "SpellFamilyName": ref["get_spell_family_name"](row.get("SpellFamilyName", 0)),
             }
 
-            # Add DisableEffectsMask interpretation
-            disable_mask = row.get("DisableEffectsMask", 0)
-            if disable_mask:
-                disabled_effects = []
-                if disable_mask & 1:
-                    disabled_effects.append("Effect 0")
-                if disable_mask & 2:
-                    disabled_effects.append("Effect 1")
-                if disable_mask & 4:
-                    disabled_effects.append("Effect 2")
-                enhanced["_decoded"]["DisabledEffects"] = disabled_effects
-
             return json.dumps(enhanced, indent=2, default=str)
 
         except Exception as e:
@@ -405,7 +393,6 @@ def register_proc_tools(mcp):
                 "SpellPhaseMask": 2,
                 "HitMask": 2,
                 "AttributesMask": 0,
-                "DisableEffectsMask": 0,
                 "ProcsPerMinute": 0,
                 "Chance": 0,
                 "Cooldown": 0,

@@ -168,7 +168,6 @@ SPELL_PROC_SCHEMA = {
     "SpellPhaseMask": "Phase: cast/hit/finish (see PROC_SPELL_PHASES)",
     "HitMask": "Hit result requirement (see PROC_HIT_FLAGS)",
     "AttributesMask": "Special attributes (see PROC_ATTRIBUTES)",
-    "DisableEffectsMask": "Bitmask of effects to disable (1=eff0, 2=eff1, 4=eff2)",
     "ProcsPerMinute": "PPM-based chance (weapon speed adjusted), 0 = use Chance",
     "Chance": "Fixed percentage chance (0-100), ignored if ProcsPerMinute > 0",
     "Cooldown": "Cooldown in milliseconds between procs",

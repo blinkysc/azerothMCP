@@ -73,6 +73,10 @@ def _get_tool_catalog():
                 "list_proc_flag_types", "diagnose_spell_proc", "get_spell_proc_schema",
                 "compare_proc_tables"
             ]
+        },
+        "ghostactor": {
+            "description": "Ghost Actor System 3D visualization (demo + real data)",
+            "tools": ["visualize_ghost_system", "visualize_ghost_system_real"]
         }
     }
 

@@ -28,7 +28,10 @@ import re
 from typing import Any
 
 from ..db import execute_query
-from ..logging import tool_logger
+from ..config import LOG_TOOL_CALLS
+
+if LOG_TOOL_CALLS:
+    from ..logging import tool_logger
 
 
 # Restricted builtins for sandbox safety
@@ -231,8 +234,8 @@ def create_sandbox_functions(tracker: QueryTracker) -> dict:
     def get_spawns(creature_entry: int, limit: int = 50) -> list:
         """Get creature spawn points."""
         result = execute_query(
-            """SELECT guid, id, map, zoneId, areaId, position_x, position_y, position_z
-               FROM creature WHERE id = %s LIMIT %s""",
+            """SELECT guid, id1, map, zoneId, areaId, position_x, position_y, position_z
+               FROM creature WHERE id1 = %s LIMIT %s""",
             "world", (creature_entry, limit)
         )
         tracker.track("get_spawns", {"creature_entry": creature_entry}, len(result))
@@ -386,13 +389,14 @@ def register_sandbox_tools(mcp):
             error = f"{type(e).__name__}: {e}"
             return json.dumps({"error": error})
         finally:
-            duration = time.time() - start_time
-            tool_logger.log_sandbox_execution(
-                code=python_code,
-                queries_executed=tracker.queries,
-                duration=duration,
-                error=error,
-            )
+            if LOG_TOOL_CALLS:
+                duration = time.time() - start_time
+                tool_logger.log_sandbox_execution(
+                    code=python_code,
+                    queries_executed=tracker.queries,
+                    duration=duration,
+                    error=error,
+                )
 
     @mcp.tool()
     def list_sandbox_functions() -> str:

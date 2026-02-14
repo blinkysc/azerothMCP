@@ -334,45 +334,48 @@ def register_smartai_tools(mcp):
             })
 
         try:
+            import re
+
             with open(smartscript_cpp, 'r') as f:
                 content = f.read()
 
             results = {}
 
-            if event_type is not None:
-                # Search for event handler
-                pattern = f"case SMART_EVENT_[A-Z_]*:\\s*// {event_type}"
-                import re
+            def find_case_block(prefix, type_id, ref_data, context_before=200, context_after=1500):
+                """Find a case block by looking up the enum name from reference data."""
+                # Get enum name from reference data
+                enum_name = None
+                if type_id in ref_data:
+                    enum_name = ref_data[type_id].get("name")
+
+                if enum_name:
+                    # Search for exact enum name
+                    pattern = rf"case {re.escape(enum_name)}\b"
+                else:
+                    # Fallback: search by prefix pattern
+                    pattern = rf"case {prefix}[A-Z_]+:"
+
                 match = re.search(pattern, content)
                 if match:
-                    # Extract surrounding context
-                    start = max(0, match.start() - 500)
-                    end = min(len(content), match.end() + 1000)
-                    results["event_source"] = content[start:end]
-                else:
-                    results["event_source"] = f"Event type {event_type} not found in SmartScript.cpp"
+                    start = max(0, match.start() - context_before)
+                    end = min(len(content), match.end() + context_after)
+                    return content[start:end]
+                return None
+
+            if event_type is not None:
+                SMART_EVENTS = _load_smart_events()
+                source = find_case_block("SMART_EVENT_", event_type, SMART_EVENTS, 200, 1000)
+                results["event_source"] = source or f"Event type {event_type} not found in SmartScript.cpp"
 
             if action_type is not None:
-                pattern = f"case SMART_ACTION_[A-Z_]*:\\s*// {action_type}"
-                import re
-                match = re.search(pattern, content)
-                if match:
-                    start = max(0, match.start() - 500)
-                    end = min(len(content), match.end() + 1500)
-                    results["action_source"] = content[start:end]
-                else:
-                    results["action_source"] = f"Action type {action_type} not found in SmartScript.cpp"
+                SMART_ACTIONS = _load_smart_actions()
+                source = find_case_block("SMART_ACTION_", action_type, SMART_ACTIONS)
+                results["action_source"] = source or f"Action type {action_type} not found in SmartScript.cpp"
 
             if target_type is not None:
-                pattern = f"case SMART_TARGET_[A-Z_]*:\\s*// {target_type}"
-                import re
-                match = re.search(pattern, content)
-                if match:
-                    start = max(0, match.start() - 500)
-                    end = min(len(content), match.end() + 1500)
-                    results["target_source"] = content[start:end]
-                else:
-                    results["target_source"] = f"Target type {target_type} not found in SmartScript.cpp"
+                SMART_TARGETS = _load_smart_targets()
+                source = find_case_block("SMART_TARGET_", target_type, SMART_TARGETS)
+                results["target_source"] = source or f"Target type {target_type} not found in SmartScript.cpp"
 
             return json.dumps(results, indent=2)
         except Exception as e:

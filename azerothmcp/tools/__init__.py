@@ -38,6 +38,7 @@ from .soap import register_soap_tools
 from .conditions import register_condition_tools
 from .waypoints import register_waypoint_tools
 from .procs import register_proc_tools
+from .ghostactor import register_ghostactor_tools
 
 # Optional imports (controlled by config)
 from ..config import ENABLE_WIKI, ENABLE_SOURCE_CODE, ENABLE_SANDBOX, ENABLE_PACKET_PARSER, ENABLE_DBC_PARSER, LOG_TOOL_CALLS, LOG_LEVEL
@@ -75,6 +76,7 @@ def register_all_tools(mcp):
     register_condition_tools(mcp)
     register_waypoint_tools(mcp)
     register_proc_tools(mcp)
+    register_ghostactor_tools(mcp)
 
     # Register optional tools if enabled
     if ENABLE_WIKI:

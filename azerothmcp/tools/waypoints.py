@@ -10,7 +10,7 @@ from ..config import MAPS_PATH, VIZ_HOST, VIZ_PORT, ENABLE_VISUALIZATION
 
 # Visualization imports (if available)
 try:
-    from ..map_parser import MapFileParser
+    from ..map_parser import MapParser
     MAPS_AVAILABLE = True
 except ImportError:
     MAPS_AVAILABLE = False
